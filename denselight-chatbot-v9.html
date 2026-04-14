@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DenseLight – Virtual Assistant Widget</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ─── DEMO PAGE (simulates DenseLight website) ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:#f0f4f8}
+.demo-page{
+  min-height:100vh;
+  background:linear-gradient(135deg,#0a1628 0%,#0c2040 50%,#0a1628 100%);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;padding:40px 20px;
+}
+.demo-badge{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:8px;padding:6px 14px;font-size:.72rem;color:rgba(255,255,255,.5);
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.demo-title{
+  font-family:'DM Serif Display',serif;font-size:clamp(2rem,5vw,3.2rem);
+  color:#fff;text-align:center;line-height:1.2;
+}
+.demo-title em{color:#22d3ee;font-style:normal}
+.demo-sub{font-size:.95rem;color:rgba(255,255,255,.45);text-align:center;max-width:480px;line-height:1.6}
+.demo-arrow{
+  margin-top:16px;color:rgba(255,255,255,.3);font-size:.8rem;
+  display:flex;align-items:center;gap:8px;animation:bounce 2s infinite;
+}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+
+/* ─── WIDGET LAUNCHER ─── */
+:root{
+  --acc:#0891b2;--acc-h:#0e7490;--acc-l:#ecfeff;--acc-l2:#cffafe;
+  --tx:#0f172a;--tx2:#475569;--tx3:#94a3b8;--tx4:#cbd5e1;
+  --bg:#ffffff;--bg2:#f8fafc;--bg3:#f1f5f9;
+  --bdr:#e2e8f0;--bdr2:#cbd5e1;
+  --grn:#059669;--red:#dc2626;--amber:#d97706;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow:0 4px 16px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.06);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.18),0 8px 24px rgba(0,0,0,.1);
+  --shadow-acc:0 4px 20px rgba(8,145,178,.35);
+}
+
+.launcher{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  width:58px;height:58px;border-radius:50%;
+  background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-acc);
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+  animation:launcherIn .4s .5s both cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes launcherIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.launcher:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(8,145,178,.5)}
+.launcher.open .ico-chat{display:none}
+.launcher.open .ico-close{display:flex}
+.ico-chat,.ico-close{display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.ico-close{display:none}
+.launcher svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.launcher-notif{
+  position:absolute;top:-3px;right:-3px;
+  width:18px;height:18px;border-radius:50%;
+  background:#ef4444;border:2px solid var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:700;color:#fff;
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}70%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+
+/* ─── CHAT WIDGET ─── */
+.widget{
+  position:fixed;bottom:96px;right:24px;z-index:9998;
+  width:380px;height:600px;max-height:calc(100vh - 120px);
+  background:var(--bg);border-radius:20px;
+  box-shadow:var(--shadow-lg);border:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:scale(.92) translateY(16px);opacity:0;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.2,.64,1),opacity .2s;
+  transform-origin:bottom right;
+}
+.widget.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
+
+/* header */
+.w-head{
+  background:linear-gradient(135deg,var(--acc) 0%,var(--acc-h) 100%);
+  padding:14px 16px;flex-shrink:0;position:relative;overflow:hidden;
+}
+.w-head::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.w-head-inner{position:relative;display:flex;align-items:center;gap:10px}
+.w-av{
+  width:38px;height:38px;border-radius:11px;
+  background:rgba(255,255,255,.2);backdrop-filter:blur(8px);
+  border:1.5px solid rgba(255,255,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;flex-shrink:0;
+}
+.w-av-info{flex:1}
+.w-av-name{font-family:'DM Serif Display',serif;font-size:.92rem;color:#fff;line-height:1.2}
+.w-av-status{display:flex;align-items:center;gap:5px;margin-top:3px}
+.w-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:blink 2s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.w-av-st{font-size:.67rem;color:rgba(255,255,255,.75)}
+.w-reset{
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+  border-radius:8px;padding:5px 10px;color:rgba(255,255,255,.9);
+  font-family:'DM Sans',sans-serif;font-size:.65rem;font-weight:500;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.w-reset:hover{background:rgba(255,255,255,.25)}
+
+/* progress bar */
+.w-prog{height:3px;background:rgba(0,0,0,.06);flex-shrink:0}
+.w-prog-f{height:100%;background:linear-gradient(90deg,#06b6d4,#3b82f6);transition:width .4s cubic-bezier(.4,0,.2,1);width:0%}
+.w-stepbar{
+  padding:5px 14px;background:var(--bg3);
+  border-bottom:1px solid var(--bdr);
+  font-size:.6rem;font-weight:600;color:var(--tx3);
+  text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;
+}
+.w-stepbar span{color:var(--acc)}
+
+/* messages */
+.w-msgs{
+  flex:1;overflow-y:auto;padding:14px 12px;
+  display:flex;flex-direction:column;gap:10px;
+  scroll-behavior:smooth;background:var(--bg2);
+}
+.w-msgs::-webkit-scrollbar{width:4px}
+.w-msgs::-webkit-scrollbar-track{background:transparent}
+.w-msgs::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:10px}
+
+.msg{display:flex;flex-direction:column;animation:msgIn .2s ease both}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.bot{align-self:flex-start;max-width:90%}
+.msg.usr{align-self:flex-end;align-items:flex-end;max-width:82%}
+.bub{
+  padding:9px 13px;border-radius:14px;
+  font-size:.78rem;line-height:1.65;word-break:break-word;
+}
+.msg.bot .bub{
+  background:var(--bg);border:1px solid var(--bdr);
+  color:var(--tx);border-bottom-left-radius:4px;
+  box-shadow:var(--shadow-sm);
+}
+.msg.usr .bub{
+  background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  color:#fff;border-bottom-right-radius:4px;
+}
+.msg.card .bub{padding:0;background:transparent;border:none;box-shadow:none}
+.mmeta{font-size:.57rem;color:var(--tx3);margin-top:3px;padding:0 2px}
+
+/* typing */
+.dots{display:flex;gap:4px;padding:9px 13px;align-items:center}
+.dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--tx4);animation:dotPop 1.2s infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotPop{0%,100%{transform:scale(.8);opacity:.4}40%{transform:scale(1.2);opacity:1}}
+
+/* ─── CUSTOMER DETAIL FORM ─── */
+.detail-form{
+  width:100%;background:var(--bg);
+  border:1px solid var(--bdr);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow-sm);
+}
+.df-head{
+  background:linear-gradient(135deg,var(--acc-l),#fff);
+  border-bottom:1px solid var(--bdr);
+  padding:12px 14px;
+}
+.df-title{
+  font-family:'DM Serif Display',serif;
+  font-size:.88rem;color:var(--tx);
+}
+.df-sub{font-size:.67rem;color:var(--tx2);margin-top:3px}
+.df-body{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.df-field{display:flex;flex-direction:column;gap:4px}
+.df-label{font-size:.63rem;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em}
+.df-label span{color:var(--red)}
+.df-input{
+  padding:8px 11px;border-radius:9px;
+  border:1.5px solid var(--bdr);background:var(--bg2);
+  font-family:'DM Sans',sans-serif;font-size:.78rem;color:var(--tx);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.df-input::placeholder{color:var(--tx3)}
+.df-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(8,145,178,.1)}
+.df-input.err{border-color:var(--red);animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.df-submit{
+  padding:9px 14px;border-radius:10px;
+  background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  border:none;color:#fff;font-family:'DM Sans',sans-serif;
+  font-size:.8rem;font-weight:700;cursor:pointer;
+  transition:opacity .15s,transform .15s,box-shadow .15s;
+  box-shadow:var(--shadow-acc);
+}
+.df-submit:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 24px rgba(8,145,178,.4)}
+.df-note{font-size:.62rem;color:var(--tx3);text-align:center;line-height:1.5}
+
+/* ─── INDUSTRY + PRODUCT CARDS ─── */
+.ind-wrap,.prod-wrap{width:100%;display:flex;flex-direction:column;gap:5px}
+.ind-item,.prod-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 11px;border-radius:10px;
+  background:var(--bg);border:1.5px solid var(--bdr);
+  cursor:pointer;transition:all .15s;user-select:none;
+}
+.ind-item:hover,.prod-item:hover{
+  border-color:var(--acc);background:var(--acc-l);
+  transform:translateX(3px);
+}
+.ind-ico{font-size:1.1rem;flex-shrink:0}
+.ind-name,.prod-name{
+  font-family:'DM Serif Display',serif;
+  font-size:.8rem;color:var(--tx);
+}
+.ind-desc,.prod-short{font-size:.66rem;color:var(--tx2);margin-top:2px;line-height:1.4}
+.prod-item{align-items:flex-start}
+.prod-info{flex:1}
+.prod-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.ptag{
+  font-size:.57rem;padding:2px 7px;border-radius:20px;
+  background:var(--bg3);border:1px solid var(--bdr);color:var(--tx3);
+}
+.prod-badge{
+  font-size:.57rem;font-weight:700;padding:3px 8px;
+  border-radius:5px;background:var(--acc-l2);border:1px solid rgba(8,145,178,.2);
+  color:var(--acc-h);white-space:nowrap;flex-shrink:0;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.backbtn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 11px;border-radius:8px;margin-top:5px;
+  background:var(--bg3);border:1px solid var(--bdr);
+  font-family:'DM Sans',sans-serif;font-size:.7rem;
+  color:var(--tx2);cursor:pointer;transition:all .14s;
+}
+.backbtn:hover{border-color:var(--acc);color:var(--acc)}
+
+/* ─── DETAIL CARD ─── */
+.det{
+  width:100%;background:var(--bg);
+  border:1.5px solid var(--bdr);border-radius:14px;overflow:hidden;
+  box-shadow:var(--shadow-sm);
+}
+.det-head{
+  background:linear-gradient(135deg,var(--acc-l),var(--acc-l2));
+  border-bottom:1px solid var(--bdr);padding:11px 13px;
+}
+.det-name{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--tx)}
+.det-sub{font-size:.65rem;color:var(--acc-h);margin-top:2px;font-weight:600}
+.det-body{padding:12px 13px;font-size:.72rem;color:var(--tx2);line-height:1.65}
+.det-body p{margin-bottom:7px}
+.det-sec{
+  font-size:.59rem;font-weight:700;color:var(--tx3);
+  text-transform:uppercase;letter-spacing:.09em;margin:9px 0 5px;
+}
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.spec-cell{background:var(--bg2);border:1px solid var(--bdr);border-radius:7px;padding:6px 8px}
+.spec-k{font-size:.57rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em}
+.spec-v{font-size:.73rem;font-weight:600;color:var(--tx);margin-top:2px}
+.feat-list,.app-list{list-style:none;padding:0}
+.feat-list li,.app-list li{
+  display:flex;gap:7px;padding:3px 0;
+  font-size:.71rem;color:var(--tx2);align-items:flex-start;
+}
+.feat-list li::before,.app-list li::before{
+  content:'›';color:var(--acc);flex-shrink:0;margin-top:1px;font-size:.9rem;font-weight:700;
+}
+.det-link{
+  display:inline-flex;align-items:center;gap:4px;margin-top:8px;
+  font-size:.68rem;color:var(--acc);text-decoration:none;font-weight:600;
+}
+.det-link:hover{text-decoration:underline}
+
+/* ─── NEXT STEPS CARD ─── */
+.nextsteps{
+  width:100%;background:var(--bg);
+  border:1.5px solid var(--bdr);border-radius:14px;padding:12px;
+  box-shadow:var(--shadow-sm);
+}
+.nextsteps-title{
+  font-family:'DM Serif Display',serif;
+  font-size:.83rem;color:var(--tx);margin-bottom:9px;
+}
+.ns-opts{display:flex;flex-direction:column;gap:5px}
+.ns-btn{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;
+  border-radius:9px;font-family:'DM Sans',sans-serif;
+  font-size:.75rem;font-weight:500;cursor:pointer;
+  transition:all .13s;border:1.5px solid var(--bdr);
+  background:var(--bg2);color:var(--tx);width:100%;text-align:left;
+}
+.ns-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-l)}
+.ns-btn.primary{
+  background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  border-color:var(--acc);color:#fff;font-weight:700;
+  box-shadow:0 2px 10px rgba(8,145,178,.25);
+}
+.ns-btn.primary:hover{box-shadow:0 4px 16px rgba(8,145,178,.4)}
+.ns-ico{font-size:.9rem;flex-shrink:0}
+
+/* ─── CONTACT CARD ─── */
+.con-card{
+  width:100%;background:var(--bg);
+  border:1.5px solid var(--bdr);border-radius:14px;padding:12px;
+  box-shadow:var(--shadow-sm);
+}
+.con-title{
+  font-family:'DM Serif Display',serif;
+  font-size:.8rem;color:var(--tx);margin-bottom:9px;
+}
+.con-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px}
+.con-row:last-child{margin-bottom:0}
+.con-ico{font-size:.8rem;flex-shrink:0;margin-top:2px}
+.con-lbl{font-size:.57rem;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em}
+.con-val{font-size:.7rem;color:var(--tx);line-height:1.5;margin-top:1px}
+.con-val a{color:var(--acc);text-decoration:none;font-weight:500}
+.con-val a:hover{text-decoration:underline}
+
+/* ─── CHIPS ─── */
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.chip{
+  padding:5px 11px;border-radius:20px;
+  border:1.5px solid var(--bdr);background:var(--bg);
+  color:var(--tx2);font-size:.7rem;font-family:'DM Sans',sans-serif;
+  cursor:pointer;transition:all .14s;white-space:nowrap;font-weight:500;
+}
+.chip:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-l)}
+
+/* ─── INPUT ─── */
+.w-input-row{
+  border-top:1.5px solid var(--bdr);padding:10px 10px;
+  display:flex;gap:7px;align-items:center;
+  background:var(--bg);flex-shrink:0;
+}
+.w-txt{
+  flex:1;background:var(--bg2);border:1.5px solid var(--bdr);
+  border-radius:10px;padding:8px 12px;
+  font-family:'DM Sans',sans-serif;font-size:.77rem;color:var(--tx);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.w-txt::placeholder{color:var(--tx3)}
+.w-txt:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(8,145,178,.1)}
+.w-txt:disabled{opacity:.5;cursor:not-allowed}
+.w-send{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 2px 8px rgba(8,145,178,.3);
+}
+.w-send:hover:not([disabled]){transform:scale(1.08);box-shadow:0 4px 14px rgba(8,145,178,.4)}
+.w-send[disabled]{opacity:.35;cursor:not-allowed;box-shadow:none}
+.w-send svg{fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+
+/* ─── EMAIL POPUP ─── */
+.overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,23,42,.5);z-index:10000;
+  align-items:center;justify-content:center;
+  padding:20px;backdrop-filter:blur(4px);
+}
+.overlay.show{display:flex}
+.popup{
+  background:var(--bg);border:1.5px solid var(--bdr);
+  border-radius:18px;width:100%;max-width:460px;overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.2);
+}
+.popup-head{
+  background:linear-gradient(135deg,var(--acc-l),#fff);
+  border-bottom:1px solid var(--bdr);padding:14px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.popup-title{font-family:'DM Serif Display',serif;font-size:.92rem;color:var(--tx)}
+.popup-close{
+  width:28px;height:28px;border-radius:7px;
+  border:1.5px solid var(--bdr);background:var(--bg);
+  color:var(--tx2);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;font-size:1rem;transition:all .13s;
+}
+.popup-close:hover{border-color:var(--red);color:var(--red)}
+.popup-body{padding:16px}
+.popup-field{margin-bottom:11px}
+.popup-label{font-size:.6rem;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:4px}
+.popup-value{
+  background:var(--bg2);border:1.5px solid var(--bdr);border-radius:9px;
+  padding:8px 11px;font-size:.76rem;color:var(--tx);
+  line-height:1.65;white-space:pre-wrap;word-break:break-word;
+  max-height:120px;overflow-y:auto;
+}
+.popup-actions{display:flex;gap:7px;margin-top:13px;padding-top:11px;border-top:1px solid var(--bdr);flex-wrap:wrap}
+.copy-btn{
+  display:flex;align-items:center;gap:6px;padding:8px 13px;
+  border-radius:8px;background:linear-gradient(135deg,var(--acc),var(--acc-h));
+  border:none;color:#fff;font-family:'DM Sans',sans-serif;
+  font-size:.74rem;font-weight:700;cursor:pointer;transition:all .13s;
+}
+.copy-btn:hover{opacity:.9}
+.copy-btn.copied{background:var(--grn)}
+.copy-btn.sec{background:var(--bg2);border:1.5px solid var(--bdr);color:var(--tx);font-weight:600}
+.copy-btn.sec:hover{border-color:var(--acc);color:var(--acc)}
+.mailto-btn{
+  display:flex;align-items:center;gap:6px;padding:8px 13px;
+  border-radius:8px;background:var(--bg2);border:1.5px solid var(--bdr);
+  color:var(--tx);font-family:'DM Sans',sans-serif;
+  font-size:.74rem;font-weight:600;cursor:pointer;text-decoration:none;transition:all .13s;
+}
+.mailto-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-l)}
+.popup-note{
+  margin-top:10px;font-size:.66rem;color:var(--tx3);
+  line-height:1.6;background:var(--bg3);
+  border:1px solid var(--bdr);border-radius:7px;padding:7px 9px;
+}
+
+/* ─── TRANSCRIPT POPUP ─── */
+.transcript-popup .popup-value{
+  max-height:260px;font-family:'DM Sans',sans-serif;
+  font-size:.72rem;white-space:pre-wrap;line-height:1.7;
+}
+.transcript-meta{
+  font-size:.6rem;color:var(--tx3);
+  border-bottom:1px solid var(--bdr);padding-bottom:8px;margin-bottom:8px;
+}
+
+/* ─── TRANSCRIPT BUTTON in footer ─── */
+.w-footer-actions{
+  display:flex;align-items:center;justify-content:center;
+  padding:4px 10px 6px;gap:6px;background:var(--bg);
+  border-top:1px solid var(--bdr);flex-shrink:0;
+}
+.transcript-btn{
+  display:flex;align-items:center;gap:5px;padding:5px 10px;
+  border-radius:7px;border:1.5px solid var(--bdr);background:var(--bg2);
+  color:var(--tx3);font-family:'DM Sans',sans-serif;font-size:.62rem;
+  font-weight:500;cursor:pointer;transition:all .14s;white-space:nowrap;
+}
+.transcript-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-l)}
+.transcript-btn svg{width:11px;height:11px;flex-shrink:0}
+
+/* ─── MOBILE ─── */
+@media(max-width:430px){
+  .widget{
+    width:100vw;right:0;left:0;bottom:0;
+    border-radius:20px 20px 0 0;
+    height:calc(100dvh - 70px);
+    max-height:calc(100dvh - 70px);
+  }
+  .launcher{right:16px;bottom:16px}
+  .w-head{padding:12px 14px}
+  .bub{font-size:.8rem}
+  .ind-item,.prod-item{padding:10px 12px}
+  .ns-btn{padding:11px 12px;font-size:.8rem;min-height:44px}
+  .chip{padding:7px 13px;font-size:.73rem;min-height:36px}
+  .w-txt{font-size:.85rem;padding:10px 13px}
+  .w-send{width:40px;height:40px}
+  .df-input{font-size:.85rem;padding:10px 12px;min-height:44px}
+  .df-submit{min-height:44px;font-size:.85rem}
+  .spec-grid{grid-template-columns:1fr}
+}
+@media(max-width:430px) and (display-mode: standalone){
+  .widget{height:calc(100dvh - 90px)}
+  .launcher{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
+</style>
+</head>
+<body>
+
+<!-- SIMULATED DENSELIGHT WEBSITE PAGE -->
+<div class="demo-page">
+  <div class="demo-badge">denselight.com — Live Preview</div>
+  <div class="demo-title">Powering Your Future<br/><em>Through Light</em></div>
+  <div class="demo-sub">Singapore-based III-V photonics & integrated optoelectronics. SLEDs, DFB Lasers, SOAs, NLW Lasers and more — serving 40+ countries.</div>
+  <div class="demo-arrow">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    Chat assistant is in the bottom-right corner
+  </div>
+</div>
+
+<!-- EMAIL POPUP -->
+<div class="overlay" id="overlay">
+  <div class="popup">
+    <div class="popup-head">
+      <div class="popup-title" id="popupTitle">📧 Contact DenseLight</div>
+      <button class="popup-close" onclick="closePopup()">✕</button>
+    </div>
+    <div class="popup-body">
+      <div class="popup-field">
+        <div class="popup-label">Send To</div>
+        <div class="popup-value"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2350424f46506347464d50464f4a444b570d404c4e">[email&#160;protected]</a></div>
+      </div>
+      <div class="popup-field">
+        <div class="popup-label">Subject</div>
+        <div class="popup-value" id="popupSubject"></div>
+      </div>
+      <div class="popup-field">
+        <div class="popup-label">Email Body</div>
+        <div class="popup-value" id="popupBody"></div>
+      </div>
+      <div class="popup-actions">
+        <button class="copy-btn" id="copyBodyBtn" onclick="copyBody()">📋 Copy Body</button>
+        <button class="copy-btn sec" id="copySubjBtn" onclick="copySubject()">📋 Copy Subject</button>
+        <a class="mailto-btn" id="mailtoLink" href="#">✉️ Open Email App</a>
+      </div>
+      <div class="popup-note">💡 Click <strong>Open Email App</strong> to launch your mail client with everything pre-filled, or copy &amp; paste into a new email to <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6b180a070e182b0f0e05180e07020c031f45080406">[email&#160;protected]</a></strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- LAUNCHER BUTTON -->
+<button class="launcher" id="launcher" onclick="toggleWidget()">
+  <span class="ico-chat">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </span>
+  <span class="ico-close">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </span>
+  <span class="launcher-notif" id="notif">1</span>
+</button>
+
+<!-- CHAT WIDGET -->
+<div class="widget" id="widget">
+  <div class="w-head">
+    <div class="w-head-inner">
+      <div class="w-av">💡</div>
+      <div class="w-av-info">
+        <div class="w-av-name">DenseLight Assistant</div>
+        <div class="w-av-status">
+          <span class="w-dot"></span>
+          <span class="w-av-st">Online · Instant Responses</span>
+        </div>
+      </div>
+      <button class="w-reset" onclick="startOver()">↺ Restart</button>
+    </div>
+  </div>
+  <div class="w-prog"><div class="w-prog-f" id="progf"></div></div>
+  <div class="w-stepbar">Step <span id="stepn">1</span> of 6 — <span id="stepname">Welcome</span></div>
+  <div class="w-msgs" id="msgs"></div>
+  <div class="w-input-row">
+    <input class="w-txt" id="txt" placeholder="Type your message…" autocomplete="off"/>
+    <button class="w-send" id="sendbtn">
+      <svg width="13" height="13" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+  <div class="w-footer-actions" id="footerActions" style="display:none">
+    <button class="transcript-btn" onclick="emailTranscript()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+      Email me this conversation
+    </button>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+/* ═══════════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════════ */
+var INDUSTRIES = [
+  {id:'sensing',   ico:'🛰️', n:'Sensing & Structural Health Monitoring', d:'DAS, structural health, environmental & fiber sensing'},
+  {id:'lidar',     ico:'🚗', n:'LiDAR & Navigation',                     d:'Wind LiDAR, automotive LiDAR, FOG & inertial navigation'},
+  {id:'medical',   ico:'🏥', n:'Medical & Healthcare',                    d:'OCT, biomedical diagnostics, medical spectroscopy'},
+  {id:'datacom',   ico:'📡', n:'Datacom, Telecom & 5G',                   d:'Data centers, 5G fronthaul, silicon photonics PICs'},
+  {id:'test',      ico:'🔬', n:'Test & Measurement',                      d:'Component testing, WDM characterization, spectroscopy'},
+  {id:'industrial',ico:'🏭', n:'Industrial & Gas Sensing',                d:'CH₄ / CO₂ detection, process monitoring, metrology'},
+  {id:'defense',   ico:'🛡️', n:'Defense & Security',                      d:'Perimeter defense, IR surveillance, secure navigation'},
+  {id:'all',       ico:'✨', n:'Show All Products',                       d:'Browse the complete DenseLight product portfolio'},
+];
+
+var IND_PRODS = {
+  sensing:   ['sled','bx_series','low_dop','soa_sense','nlw_wind','dfb','eled','ase'],
+  lidar:     ['nlw_wind','nlw_auto','low_dop','fp','soa_sense'],
+  medical:   ['sled','eled','ase','dfb'],
+  datacom:   ['dfb_cw','soa_comms','gain','fp','ase'],
+  test:      ['sled','eled','ase','dfb','soa_sense'],
+  industrial:['dfb','dfb_cw','sled','eled'],
+  defense:   ['nlw_wind','nlw_auto','soa_sense','sled','low_dop'],
+  all:       ['sled','bx_series','low_dop','eled','dfb','dfb_cw','fp','nlw_wind','nlw_auto','soa_sense','soa_comms','gain','ase','bf21'],
+};
+
+var PRODS = {
+  sled:     {name:'SLED Modules',badge:'Sensing',url:'https://www.denselight.com/products/sled-modules/',short:'Superluminescent LEDs — O to U band, Telcordia GR-468-CORE certified.',desc:'DenseLight SLEDs operate in true superluminescent mode. PMF versions available. Designed for OCT, sensing, spectroscopy and navigation.',specs:[['Wavelength','1250–1700 nm'],['Output Power','0.2–50 mW'],['Spectral Width','25–100 nm'],['RIN','–140 to –125 dB/Hz'],['Package','14-pin Butterfly'],['Cert.','Telcordia GR-468-CORE']],feats:['True superluminescent mode','PMF versions available','Broader bandwidth at higher drive currents','O, E, S, C, L, U band coverage'],apps:['OCT (Ophthalmology, Cardiology)','Fiber Optic Sensing','Spectroscopy','Component Testing'],tags:['SLED','PMF','Broadband']},
+  bx_series:{name:'Integrated Light Modules (SLED)',badge:'Plug & Play',url:'https://www.denselight.com/products/sled-with-drivers/',short:'BX9 / BX10 / BZ1 — SLEDs with built-in driver & TEC. No external hardware needed.',desc:'The BX9/BX10/BZ1 series integrate a current driver and TEC controller. BZ1 adds CW, digital, and analog modulation. Hermetically sealed, ±10% voltage tolerance, supplied with power adaptor.',specs:[['Series','BX9 / BX10 / BZ1'],['Driver','Integrated current + TEC'],['Modulation','CW / Digital / Analog (BZ1)'],['Voltage Tol.','±10%'],['Housing','Hermetically sealed'],['Includes','Power adaptor']],feats:['Plug-and-play — no external driver','BZ1 supports CW, digital & analog modulation','Built-in TEC temperature stabilization','Hermetically sealed laser-welded package'],apps:['Lab & Bench Systems','OEM Integration','OCT Systems','Field Sensing'],tags:['BX9','BX10','BZ1','Plug & Play']},
+  low_dop:  {name:'Low DOP SLED',badge:'Navigation',url:'https://www.denselight.com/products/low-dop-sled/',short:'Ultra-low DOP SLEDs for Fiber Optic Gyroscopes & FBGL sensing.',desc:'Ultra-low Degree of Polarization minimizes polarization-induced noise — critical for precision inertial navigation in FOG and FBG sensing systems.',specs:[['Wavelength','1310 / 1550 nm'],['DOP','Ultra-low'],['Application','FOG, FBGL'],['Package','14-pin Butterfly'],['Stability','High over temperature'],['Cert.','Telcordia GR-468-CORE']],feats:['Ultra-low DOP for navigation accuracy','Consistent performance over temperature','Custom wavelengths available'],apps:['Fiber Optic Gyroscopes (FOG)','FBG Sensing (FBGL)','Inertial Navigation','Guidance Systems'],tags:['Low DOP','FOG','Navigation']},
+  eled:     {name:'ELED Modules',badge:'Cost-Effective',url:'https://www.denselight.com/products/eled/',short:'Edge-Emitting LEDs — broadband, very low coherence, lower cost than SLEDs.',desc:'ELEDs offer a cost-effective broadband light source with extremely low coherence. Ideal for NIR sensing and spectroscopy where full SLED performance is not required.',specs:[['Type','Edge-Emitting LED'],['Coherence','Very Low'],['Package','TO / Fiber-pigtailed'],['Cost','Lower than SLED'],['Wavelength','NIR range'],['Spectrum','Broadband']],feats:['Very broad spectrum, low coherence','Lower cost than SLED modules','TO and fiber-pigtailed options'],apps:['NIR Spectroscopy','Broadband Component Testing','Low-cost Sensing'],tags:['ELED','Broadband','Low Cost']},
+  dfb:      {name:'DFB Laser — Gas Sensing & Telecom',badge:'Single Mode',url:'https://www.denselight.com/products/gas-sensing-distributed-feedback-laser-dfb/',short:'DFB Lasers with SMSR >40 dB. 1653 nm for CH₄ detection.',desc:'InGaAsP DFB lasers in TO-can and bare chip. The 1653 nm version is purpose-built for methane (CH₄) detection. Also covers CO₂, HF, and telecom applications.',specs:[['Wavelength','1270–1650 nm'],['Gas Sensing','1653 nm (CH₄)'],['Output Power','Min. 3 mW'],['SMSR','>40 dB'],['Package','TO-can / Bare Chip'],['Op. Temp','–40°C to +85°C']],feats:['SMSR >40 dB single-mode purity','1653 nm for methane (CH₄) detection','Stable emission over temperature extremes','Bare chip for PIC integration'],apps:['Gas Sensing (CH₄, CO₂, HF)','Telecom','Structural Health Monitoring','Free-Space Optical Links'],tags:['DFB','Gas Sensing','1653nm']},
+  dfb_cw:   {name:'CW DFB Lasers — 25G',badge:'Datacom',url:'https://www.denselight.com/products/high-power-cw-lasers/',short:'25G CW DFB lasers for O-band & C-band data centers and silicon photonics.',desc:'High-power CW DFB lasers for data center interconnects. "Twinning" capability matches DFB + SOA/Gain Chip pairs for silicon photonics PIC integration.',specs:[['Data Rate','25G'],['O-Band','1270/1290/1310/1330 nm'],['C-Band','DWDM-ITU Grid'],['Design','MQW grating'],['Feature','Twinning with SOA'],['Platform','Silicon Photonics']],feats:['"Twinning" — matched DFB + SOA/Gain Chip','MQW grating for wavelength stability','O-band (4λ) + C-band DWDM','Silicon photonics compatible'],apps:['Data Center Interconnects','Silicon Photonics PICs','5G Fronthaul','Coherent Comms'],tags:['25G','CW','O-Band','C-Band']},
+  fp:       {name:'FP Laser (Fabry-Perot) — High Power',badge:'High Power',url:'https://www.denselight.com/products/fabry-perot-laser-fp/',short:'100–200 mW FP Lasers in CW and pulsed modes for OTDR and sensing.',desc:'High-power FP lasers in CW and pulsed modes. No complex grating — cost-effective vs DFB/ECL. Ideal SOA/EDFA seed sources and OTDR instruments.',specs:[['Output Power','100 / 200 mW'],['Operation','CW and Pulsed'],['Band','O-Band: 1260–1360 nm'],['Pulsed Apps','OTDR, TOF, LiDAR'],['Cost','Lower than DFB/ECL'],['Form','TO / Chip']],feats:['200 mW CW without grating complexity','Pulsed mode for OTDR and LiDAR','Cost-effective vs DFB/ECL','Ideal SOA/EDFA seed source'],apps:['SOA/EDFA Seed Source','OTDR Instruments','PON','Short-Range Datacom'],tags:['FP','High Power','200mW','Pulsed']},
+  nlw_wind: {name:'Narrow Linewidth Laser — Wind LiDAR',badge:'LiDAR',url:'https://www.denselight.com/products/narrow-linewidth-laser/',short:'<10 kHz linewidth, >10 km coherence for Doppler wind sensing.',desc:'Purpose-built NLW Lasers for Wind LiDAR. Linewidth <10 kHz gives coherence >10 km — essential for Doppler wind speed and direction sensing.',specs:[['Linewidth','<10 kHz'],['Coherence','>10 km'],['Power','10 / 20 mW'],['SMSR','>55 dB'],['10mW','Compact/lab/on-chip'],['20mW','Field-deployable']],feats:['Linewidth <10 kHz — coherence >10 km','SMSR >55 dB','10 mW compact & 20 mW field versions','SOA-compatible for amplification'],apps:['Wind Speed & Direction Sensing','Offshore Wind Farm Monitoring','Atmospheric LiDAR','Meteorological Sensing'],tags:['NLW','Wind LiDAR','<10kHz']},
+  nlw_auto: {name:'Narrow Linewidth Laser — Automotive LiDAR',badge:'LiDAR',url:'https://www.denselight.com/products/narrow-linewidth-laser/',short:'Eye-safe 1550 nm NLW Lasers for ADAS & autonomous vehicles.',desc:'NLW Lasers for automotive / road LiDAR. Eye-safe 1550 nm, 100 kHz linewidth (~1 km coherence), SMSR >55 dB. Multiple integration levels.',specs:[['Linewidth','100 kHz (~1 km coh.)'],['Wavelength','1550 nm (eye-safe)'],['Power','10 / 20 mW'],['SMSR','>55 dB'],['Safety','Eye-safe wavelength'],['Integration','Chip/Module/System']],feats:['Eye-safe 1550 nm wavelength','100 kHz linewidth, ~1 km coherence','SMSR >55 dB, minimal false returns','Chip to full-module integration levels'],apps:['Autonomous Vehicles (ADAS)','Road LiDAR','Drones & UAVs','FMCW LiDAR'],tags:['NLW','Automotive','1550nm','ADAS']},
+  soa_sense:{name:'High Power SOA — Sensing',badge:'Amplifier',url:'https://www.denselight.com/products/soa-for-comms/',short:'≥20 dB gain SOA Arrays for DAS, FOG, and FBG interrogation.',desc:'High Power SOA Arrays: ≥20 dB gain, ≥20 dBm saturation, <7 dB noise figure. Available in 14-pin BTF, chip-on-submount, HOSA/HybridXwave.',specs:[['Optical Gain','≥20 dB'],['Sat. Output','≥20 dBm'],['Noise Figure','<7 dB'],['Bandwidth','C/L/Super-L Band'],['Package','BTF / Chip / HOSA'],['Integration','HybridXwave 3D']],feats:['Gain ≥20 dB, saturation ≥20 dBm','Noise figure <7 dB','TEC-cooled stability','HOSA/HybridXwave 3D PIC integration'],apps:['Distributed Acoustic Sensing (DAS)','Fiber Optic Gyroscopes (FOG)','FBG Interrogation','Structural Health Monitoring'],tags:['SOA','Sensing','DAS','HOSA']},
+  soa_comms:{name:'SOA — Communications & Switch',badge:'Telecom',url:'https://www.denselight.com/products/soa-for-comms/',short:'SOA switches with >60 dB extinction ratio for coherent comms & silicon photonics.',desc:'DS-SA Series SOAs for coherent communications. High-speed switching ER >60 dB, Super L-band >100 nm, HybridXwave silicon photonics integration.',specs:[['Optical Gain','≥20 dB'],['Extinction Ratio','>60 dB'],['Bandwidth','>100 nm (Super L)'],['PDG','<3 dB'],['Operation','CW & High-Speed'],['Integration','Silicon Photonics']],feats:['High-speed switching ER >60 dB','Super L-band >100 nm bandwidth','Low PDG <3 dB','HybridXwave silicon photonics integration'],apps:['Coherent Communications','Silicon Photonics PICs','WDM Networks','Data Center Switching'],tags:['SOA','Switch','Coherent','SiP']},
+  gain:     {name:'Gain Chip',badge:'ITLA/ECL',url:'https://www.denselight.com/products/gain-chip/',short:'InP gain chips for ECTL/ITLA covering 1260–1650 nm.',desc:'InP gain chips with LR-AR or HR-AR coatings for external cavity tunable laser designs. Near-circular far-field for efficient coupling, low ASE ripple for stable tuning.',specs:[['Range','1260–1650 nm'],['Front Facet','LR-AR or AR angled'],['Back Facet','HR coating'],['Far-Field','Near-circular'],['ASE Ripple','Low'],['Form','Bare chip / CoS']],feats:['High gain over 1260–1650 nm','Low ASE ripple for stable tuning','Near-circular far-field profile','P-side down — low thermal resistance'],apps:['External Cavity Tunable Lasers','ITLA Assembly','Coherent Transceivers','T&M Sources'],tags:['Gain Chip','ITLA','Tunable']},
+  ase:      {name:'ASE Broadband Light Source + Driver',badge:'Broadband',url:'https://www.denselight.com/products/ase-broadband-light-source-driver/',short:'All telecom bands (O–U) in one module with integrated driver.',desc:'Complete ASE broadband source with integrated driver. Covers O, E, S, C, L, U telecom bands with higher spectral density than standalone SLEDs.',specs:[['Type','Amplified Spontaneous Emission'],['Bands','O, E, S, C, L, U'],['Driver','Integrated'],['Power','Higher than SLED'],['Density','High spectral density'],['Use Case','WDM testing, sensing']],feats:['Plug-and-play with integrated driver','All major telecom bands','Higher spectral density than SLEDs','Stable, repeatable output'],apps:['WDM Component Testing','Passive Component Characterization','Broadband Spectroscopy','Sensor Interrogation'],tags:['ASE','Broadband','All Bands','Driver']},
+  bf21:     {name:'BF21 — Integrated NLW Light Module',badge:'Compact OEM',url:'https://www.denselight.com/products/narrow-linewidth-laser-with-driver/',short:'"Matchbox" NLW module with integrated driver & TEC for OEM instruments.',desc:'BF21 is DenseLight\'s compact matchbox-sized module combining a proprietary NLW laser with built-in driver and TEC. Designed for OEM instrument integration.',specs:[['Form Factor','Matchbox sized'],['Series','CBF-9 + expanded'],['Source','Proprietary NLW laser'],['Modulation','CW and Modulated'],['Driver','Fully integrated'],['TEC','Built-in controller']],feats:['Ultra-compact hermetically sealed package','Integrated driver and TEC controller','CW and modulated operation','C-band initially; O,E,S,L planned'],apps:['OEM Laser Modules','Portable Instruments','Coherent Sensing','Test & Measurement'],tags:['BF21','Compact','OEM','NLW']},
+};
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+var S = {name:'',company:'',email:'',phone:'',industry:null,product:null,freeChat:false,awaitText:false,textFor:null};
+var STEP_CFG = {
+  welcome: {n:1,l:'Welcome'},
+  details: {n:2,l:'Your Details'},
+  industry:{n:3,l:'Industry'},
+  products:{n:4,l:'Products'},
+  detail:  {n:5,l:'Product Details'},
+  nextsteps:{n:6,l:'Next Steps'},
+};
+
+/* ═══════════════════════════════════════════════════════
+   DOM
+═══════════════════════════════════════════════════════ */
+var msgsEl    = document.getElementById('msgs');
+var txtEl     = document.getElementById('txt');
+var sendbtnEl = document.getElementById('sendbtn');
+var progfEl   = document.getElementById('progf');
+var stepnEl   = document.getElementById('stepn');
+var stepnmEl  = document.getElementById('stepname');
+var widgetEl  = document.getElementById('widget');
+var launchEl  = document.getElementById('launcher');
+
+/* ═══════════════════════════════════════════════════════
+   WIDGET OPEN / CLOSE
+═══════════════════════════════════════════════════════ */
+var widgetOpened = false;
+function toggleWidget(){
+  widgetEl.classList.toggle('open');
+  launchEl.classList.toggle('open');
+  document.getElementById('notif').style.display='none';
+  if(!widgetOpened){ widgetOpened=true; init(); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════ */
+function setStep(k){
+  var s=STEP_CFG[k]||{n:1,l:''};
+  progfEl.style.width=Math.round(s.n/6*100)+'%';
+  stepnEl.textContent=s.n; stepnmEl.textContent=s.l;
+}
+function ts(){ return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function wait(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function el(tag,cls,txt){
+  var e=document.createElement(tag);
+  if(cls) e.className=cls;
+  if(txt!==undefined) e.textContent=txt;
+  return e;
+}
+function botText(html){
+  var w=el('div','msg bot');
+  var b=el('div','bub'); b.innerHTML=html;
+  var m=el('span','mmeta'); m.textContent='DenseLight Assistant · '+ts();
+  w.appendChild(b); w.appendChild(m);
+  msgsEl.appendChild(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function botCard(node){
+  var w=el('div','msg bot card');
+  var b=el('div','bub'); b.appendChild(node);
+  var m=el('span','mmeta'); m.textContent='DenseLight Assistant · '+ts();
+  w.appendChild(b); w.appendChild(m);
+  msgsEl.appendChild(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function userText(t){
+  var w=el('div','msg usr');
+  var b=el('div','bub'); b.textContent=t;
+  var m=el('span','mmeta'); m.textContent='You · '+ts();
+  w.appendChild(b); w.appendChild(m);
+  msgsEl.appendChild(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function showTyping(){
+  var w=el('div','msg bot'); w.id='typ';
+  var b=el('div','bub');
+  var d=el('div','dots'); d.innerHTML='<span></span><span></span><span></span>';
+  b.appendChild(d); w.appendChild(b); msgsEl.appendChild(w);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function hideTyping(){ var e=document.getElementById('typ'); if(e) e.remove(); }
+function enableInput(ph){
+  txtEl.disabled=false; sendbtnEl.disabled=false;
+  txtEl.placeholder=ph||'Type your message…'; txtEl.value=''; txtEl.focus();
+}
+function disableInput(){
+  txtEl.disabled=true; sendbtnEl.disabled=true;
+  txtEl.placeholder='Please use the form above…';
+}
+async function say(html,ms){
+  showTyping(); await wait(ms||650); hideTyping(); botText(html);
+}
+function addChips(list,fn){
+  var wrap=el('div','chips');
+  list.forEach(function(c){
+    var chip=el('button','chip'); chip.textContent=c;
+    chip.addEventListener('click',function(){ userText(c); fn(c); });
+    wrap.appendChild(chip);
+  });
+  var w=el('div','msg bot card');
+  var b=el('div','bub'); b.appendChild(wrap);
+  w.appendChild(b); msgsEl.appendChild(w);
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+
+/* ═══════════════════════════════════════════════════════
+   EMAIL POPUP
+═══════════════════════════════════════════════════════ */
+var _cSubject='', _cBody='';
+function showEmailPopup(title,subject,body){
+  _cSubject=subject; _cBody=body;
+  document.getElementById('popupTitle').textContent='📧 '+title;
+  document.getElementById('popupSubject').textContent=subject;
+  document.getElementById('popupBody').textContent=body;
+  document.getElementById('copyBodyBtn').textContent='📋 Copy Body';
+  document.getElementById('copyBodyBtn').className='copy-btn';
+  document.getElementById('mailtoLink').href='mailto:sales@denselight.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+  document.getElementById('overlay').classList.add('show');
+}
+function closePopup(){ document.getElementById('overlay').classList.remove('show'); }
+function copyBody(){
+  var btn=document.getElementById('copyBodyBtn');
+  (navigator.clipboard?navigator.clipboard.writeText(_cBody):Promise.reject()).then(function(){
+    btn.textContent='✅ Copied!'; btn.className='copy-btn copied';
+    setTimeout(function(){ btn.textContent='📋 Copy Body'; btn.className='copy-btn'; },2000);
+  }).catch(function(){
+    var ta=document.createElement('textarea'); ta.value=_cBody;
+    ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent='✅ Copied!'; btn.className='copy-btn copied';
+    setTimeout(function(){ btn.textContent='📋 Copy Body'; btn.className='copy-btn'; },2000);
+  });
+}
+function copySubject(){
+  var btn=document.getElementById('copySubjBtn');
+  (navigator.clipboard?navigator.clipboard.writeText(_cSubject):Promise.reject()).then(function(){
+    btn.textContent='✅ Copied!'; btn.style.background='var(--grn)'; btn.style.color='#fff'; btn.style.borderColor='var(--grn)';
+    setTimeout(function(){ btn.textContent='📋 Copy Subject'; btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; },2000);
+  }).catch(function(){});
+}
+document.getElementById('overlay').addEventListener('click',function(e){ if(e.target===this) closePopup(); });
+
+function buildEmailBody(p,req){
+  return 'Hi DenseLight Team,\n\nName: '+S.name+'\nCompany: '+S.company+'\nEmail: '+S.email+(S.phone?'\nPhone: '+S.phone:'')+'\nIndustry: '+(S.industry?S.industry.n:'N/A')+'\nProduct of Interest: '+p.name+'\n\n'+req+'\n\nThank you.';
+}
+
+/* ═══════════════════════════════════════════════════════
+   FAQ KNOWLEDGE BASE — BEST-MATCH SCORER
+   (longer keyword wins = more specific match)
+═══════════════════════════════════════════════════════ */
+var FAQ_KB = [
+  /* ── GREETINGS ── */
+  {k:['hello','hi there','hey there','good morning','good afternoon','good evening','greetings','howdy','welcome'],
+   a:'Hello! 👋 How can I help you today? Feel free to ask anything about DenseLight\'s products, applications, or services.',
+   chips:['What does DenseLight specialise in?','What products do you offer?','Contact sales','Industries you serve']},
+  {k:['hi','hey','start','begin'],score_weight:.5,
+   a:'Hi there! 👋 Ask me anything about DenseLight products or services.',
+   chips:['Browse products','What is DenseLight?','Contact info']},
+
+  /* ── ABOUT & GENERAL ── */
+  {k:['what does denselight specialise','what does denselight do','what does denselight specialize','denselight specialise','specialize in','what do you do','what does denselight offer'],
+   a:'<strong>DenseLight Semiconductors</strong> specialises in designing and manufacturing high-performance <strong>III-V photonic and optoelectronic devices</strong>. Our product range includes SLEDs, DFB Lasers, Narrow Linewidth Lasers, Semiconductor Optical Amplifiers (SOAs), Gain Chips, ELEDs, FP Lasers and Integrated Light Modules.<br/><br/>We serve industries including Sensing, Medical, LiDAR, Datacom, Telecom, Industrial Gas Sensing, and Defense — with customers in <strong>40+ countries</strong>.<br/><br/>🌐 <a href="https://www.denselight.com/about-us/" target="_blank" style="color:var(--acc)">Learn more about DenseLight →</a>'},
+  {k:['who is denselight','what is denselight','about denselight','about the company','tell me about denselight','company overview','company profile','company background'],
+   a:'<strong>DenseLight Semiconductors Pte. Ltd.</strong> is a Singapore-based III-V photonics company specialising in advanced optoelectronic devices — SLEDs, DFB Lasers, SOAs, Narrow Linewidth Lasers, Gain Chips and photonic integrated circuits.<br/><br/>🏆 <strong>At a glance:</strong><br/>• <strong>25+ years</strong> of photonics expertise<br/>• <strong>65+ patents</strong> in photonic ICs & devices<br/>• <strong>15,000 ft²</strong> Class 100/1000 cleanroom in Singapore<br/>• Customers in <strong>40+ countries</strong> worldwide<br/>• Qualified to <strong>Telcordia GR-468-CORE</strong><br/><br/>🌐 <a href="https://www.denselight.com/about-us/" target="_blank" style="color:var(--acc)">denselight.com/about-us</a>'},
+  {k:['where is denselight headquartered','location','address','where is denselight','headquarter','office address','changi','singapore office','singapore location'],
+   a:'DenseLight is headquartered at:<br/><br/>📍 <strong>6 Changi North Street 2, #498831, Singapore</strong><br/><br/>All cleanroom manufacturing and operations are based on-site in Singapore. We do not have additional international offices but work through a global distributor network.<br/><br/>📞 +65 6415 4422 (Corporate) &nbsp;|&nbsp; +65 6415 7989 (Sales)'},
+  {k:['global offices','international offices','overseas office','regional office','offices worldwide'],
+   a:'DenseLight is headquartered entirely in <strong>Singapore</strong>, with our cleanroom facility and global operations all based at our Changi premises. We serve 40+ countries through our <strong>global distributor and partner network</strong>.<br/><br/>🌐 <a href="https://www.denselight.com/find-a-partner/" target="_blank" style="color:var(--acc)">Find a partner in your region →</a>'},
+  {k:['how can i contact sales','how to contact sales','how to contact support','contact sales','reach sales','contact support','sales enquiry'],
+   a:'You can reach our sales and support teams directly:<br/><br/>📧 <strong>Sales:</strong> <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📧 <strong>General / Support:</strong> <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 <strong>Sales Phone:</strong> +65 6415 7989<br/>📞 <strong>Corporate:</strong> +65 6415 4422<br/>📍 6 Changi North Street 2, Singapore<br/>🌐 <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">Online contact form →</a>'},
+  {k:['founded','history','how old','when was denselight','established','years of experience'],
+   a:'DenseLight has <strong>25+ years</strong> of experience in photonics and semiconductor technology, headquartered in Singapore and serving 40+ countries globally.'},
+  {k:['patent','patents','intellectual property','ip portfolio'],
+   a:'DenseLight holds <strong>65+ patents</strong> spanning photonic ICs, SLEDs, narrow linewidth lasers, SOAs and related optoelectronic technologies — reflecting decades of deep R&D investment.'},
+  {k:['cleanroom','manufacturing facility','fabrication facility','fab','class 100','wafer fabrication','production facility'],
+   a:'DenseLight operates a <strong>15,000 ft² Class 100/1000 cleanroom</strong> in Singapore for in-house wafer fabrication and device manufacturing. This full vertical integration ensures quality control from wafer growth to final packaged module.'},
+  {k:['mission','vision','values','core values'],
+   a:'DenseLight\'s mission is to advance the world through light — delivering world-class photonic components for sensing, communications, medical diagnostics, and beyond.<br/>🌐 <a href="https://www.denselight.com/about-us/" target="_blank" style="color:var(--acc)">Learn more →</a>'},
+  {k:['management','leadership','ceo','management team'],
+   a:'For information about DenseLight\'s leadership team, visit:<br/>🌐 <a href="https://www.denselight.com/about-us/#ManagementTeamSection" target="_blank" style="color:var(--acc)">denselight.com — Management Team →</a>'},
+  {k:['inp','ingaasp','iii-v','semiconductor material','indium phosphide','gaas','semiconductor materials used','what materials'],
+   a:'DenseLight uses <strong>InP (Indium Phosphide)</strong> and <strong>InGaAsP (Indium Gallium Arsenide Phosphide)</strong> — III-V compound semiconductors. InP-based devices excel in the 1.2–1.7 µm telecom and sensing wavelength range, offering high gain, low noise, and high-speed modulation capability. DenseLight does <strong>not</strong> use GaAs for its core product range.'},
+  {k:['chinese','mandarin','chinese website','中文'],
+   a:'DenseLight has a Chinese-language website at:<br/>🌐 <a href="https://cn.denselight.com" target="_blank" style="color:var(--acc)">cn.denselight.com</a>'},
+
+  /* ── PRODUCTS OVERVIEW ── */
+  {k:['what products','product range','product list','catalogue','catalog','what do you sell','product portfolio','what do you make','product lineup','types of light sources','what light sources','types of lasers'],
+   a:'DenseLight manufactures two families of photonic devices:<br/><br/><strong>🔵 Sensing Products:</strong><br/>SLED Modules, ELED Modules, Low DOP SLED, Gas Sensing DFB, Narrow Linewidth Lasers, DFB Laser, Broadband Light Set, Integrated Light Modules (SLED/NLL), ASE Broadband Source<br/><br/><strong>🟠 Datacom & Telecom:</strong><br/>CW DFB Lasers (25G), SOA, Gain Chip, Fabry-Perot Laser (FP)<br/><br/>🌐 <a href="https://www.denselight.com/products/" target="_blank" style="color:var(--acc)">Full catalog →</a>',
+   chips:['Browse by industry','SLED Modules','DFB Lasers','SOA Products']},
+
+  /* ── PHOTONICS COMPONENT QUESTIONS ── */
+  {k:['sled module','superluminescent','superluminescent led','what is a sled','sled product','sled used for','how are sled used'],
+   a:'<strong>SLED (Superluminescent LED) Modules</strong> generate broadband, low-coherence light — more power than a standard LED, but without the coherence of a laser, making them ideal where laser speckle must be avoided.<br/><br/>📋 <strong>Specs:</strong> 1250–1700 nm, 0.2–50 mW, 25–100 nm spectral width, Telcordia GR-468-CORE certified. PMF versions available.<br/><br/>🎯 <strong>Used in:</strong> OCT imaging, fiber sensing, FBG interrogation, spectroscopy, navigation (FOG)<br/><br/>🌐 <a href="https://www.denselight.com/products/sled-modules/" target="_blank" style="color:var(--acc)">View SLED Modules →</a>'},
+  {k:['lasers for telecom','telecom laser','5g laser','telecom 5g laser','laser for datacom','lasers for 5g'],
+   a:'Yes! DenseLight offers several laser products for telecom and 5G:<br/><br/>• <strong>CW DFB 25G Lasers</strong> — O-band (1270–1330 nm) and C-band DWDM-ITU for data centers and 5G fronthaul<br/>• <strong>FP Lasers</strong> — 100/200 mW for PON and short-reach links<br/>• <strong>Gain Chips</strong> — for ITLA/ECL tunable laser assemblies in coherent transceivers<br/>• <strong>SOA Switches</strong> — ER >60 dB for high-speed optical switching<br/><br/>🌐 <a href="https://www.denselight.com/products/" target="_blank" style="color:var(--acc)">Explore products →</a>'},
+  {k:['difference between narrow linewidth dfb','narrow linewidth vs dfb','nlw vs dfb','difference between nlw and dfb','dfb vs narrow linewidth'],
+   a:'The key distinction is as follows:<br/><br/><strong>DFB Lasers</strong> — single-mode lasers with <strong>SMSR >40 dB</strong> and linewidths typically in the MHz range. Best for gas sensing (TDLAS), telecom carrier wavelengths, and structural monitoring.<br/><br/><strong>Narrow Linewidth (NLW) Lasers</strong> — ultra-narrow linewidth of <strong><10 kHz</strong> (Wind LiDAR) or <strong>100 kHz</strong> (Automotive LiDAR), giving coherence lengths of >10 km and ~1 km respectively. Best for coherent LiDAR, Doppler sensing, and FMCW applications requiring extremely long coherence.<br/><br/>Simply: DFB = stable single-mode | NLW = ultra-long coherence for LiDAR'},
+  {k:['autonomous vehicle lidar','lidar for autonomous','car lidar components','adas components','lidar supplier','components for lidar','supply lidar'],
+   a:'Yes! DenseLight supplies photonic components for <strong>autonomous vehicle LiDAR</strong>:<br/><br/>• <strong>NLW Automotive LiDAR Laser</strong> — eye-safe 1550 nm, 100 kHz linewidth, SMSR >55 dB, for FMCW LiDAR<br/>• Multiple integration levels: bare chip, module, or full system<br/>• Designed for ADAS, autonomous vehicles, drones, and road-scanning systems<br/><br/>🌐 <a href="https://www.denselight.com/our_application/automotive-lidar/" target="_blank" style="color:var(--acc)">Automotive LiDAR Applications →</a>'},
+  {k:['bx9','bx10','bz1','sled with driver','integrated sled driver','plug and play sled'],
+   a:'The <strong>BX9 / BX10 / BZ1</strong> series are plug-and-play SLEDs with integrated current driver and TEC — no external hardware needed. BZ1 adds digital and analog modulation. ±10% voltage tolerance, hermetically sealed.<br/><br/>🌐 <a href="https://www.denselight.com/products/sled-with-drivers/" target="_blank" style="color:var(--acc)">View Integrated SLED Modules →</a>'},
+  {k:['low dop sled','degree of polarization','fog','fiber optic gyroscope','gyroscope laser','fbgl','low dop','inertial navigation sled'],
+   a:'The <strong>Low DOP SLED</strong> features ultra-low Degree of Polarization — minimizing polarization noise in Fiber Optic Gyroscopes (FOG) and FBGL sensing for precision inertial navigation.<br/><br/>📋 Wavelengths: 1310 nm / 1550 nm (custom available)<br/><br/>🌐 <a href="https://www.denselight.com/products/low-dop-sled/" target="_blank" style="color:var(--acc)">View Low DOP SLED →</a>'},
+  {k:['eled','edge emitting led','edge-emitting led','eled module'],
+   a:'<strong>ELED Modules</strong> offer cost-effective broadband light with very low coherence — ideal for NIR sensing and spectroscopy where full SLED performance is not required. Available in TO and fiber-pigtailed packages.<br/><br/>🌐 <a href="https://www.denselight.com/products/eled/" target="_blank" style="color:var(--acc)">View ELED Modules →</a>'},
+  {k:['dfb laser','distributed feedback laser','dfb product','dl-dfb','what is dfb'],
+   a:'DenseLight <strong>DFB Lasers</strong> are single-mode InGaAsP devices with SMSR >40 dB. Available in TO-can and bare chip.<br/><br/>📋 1270–1650 nm, min. 3 mW, –40°C to +85°C. 1653 nm variant for CH₄ gas sensing.<br/><br/>🌐 <a href="https://www.denselight.com/products/distributed-feedback-laser-dfb/" target="_blank" style="color:var(--acc)">View DFB Lasers →</a>'},
+  {k:['gas sensing dfb','1653','1653nm','methane','ch4','methane laser','ch4 detection','methane detection'],
+   a:'The <strong>Gas Sensing DFB at 1653 nm</strong> is purpose-built for methane (CH₄) detection via TDLAS. SMSR >40 dB ensures clean single-mode emission for precise gas absorption measurements. Also covers CO₂ and HF.<br/><br/>🌐 <a href="https://www.denselight.com/products/gas-sensing-distributed-feedback-laser-dfb/" target="_blank" style="color:var(--acc)">View Gas Sensing DFB →</a>'},
+  {k:['cw dfb','high power cw laser','25g laser','25g dfb','twinning','silicon photonics laser'],
+   a:'<strong>CW DFB Lasers (25G)</strong> cover O-band (1270/1290/1310/1330 nm) and C-band DWDM-ITU. Key feature: <strong>"Twinning"</strong> — matched DFB + SOA/Gain Chip pairs for silicon photonics PIC integration.<br/><br/>🌐 <a href="https://www.denselight.com/products/high-power-cw-lasers/" target="_blank" style="color:var(--acc)">View CW DFB Lasers →</a>'},
+  {k:['fabry perot','fabry-perot','fp laser','high power laser','200mw','100mw laser','otdr laser','pulsed laser'],
+   a:'<strong>FP Lasers</strong> deliver 100 mW and 200 mW CW and pulsed. No grating complexity — cost-effective vs DFB/ECL. Ideal for SOA/EDFA seeding and OTDR.<br/><br/>🌐 <a href="https://www.denselight.com/products/fabry-perot-laser-fp/" target="_blank" style="color:var(--acc)">View FP Lasers →</a>'},
+  {k:['narrow linewidth','nlw laser','narrow linewidth laser','<10khz','low linewidth','wind lidar laser'],
+   a:'<strong>Narrow Linewidth (NLW) Lasers</strong>:<br/>• <strong>Wind LiDAR:</strong> <10 kHz linewidth, >10 km coherence, 10/20 mW, SMSR >55 dB<br/>• <strong>Automotive LiDAR:</strong> 100 kHz, eye-safe 1550 nm, 10/20 mW, SMSR >55 dB<br/><br/>🌐 <a href="https://www.denselight.com/products/narrow-linewidth-laser/" target="_blank" style="color:var(--acc)">View NLW Lasers →</a>'},
+  {k:['soa','semiconductor optical amplifier','optical amplifier','soa product','soa array','what is soa'],
+   a:'DenseLight offers two SOA families:<br/><br/><strong>Sensing SOA:</strong> ≥20 dB gain, ≥20 dBm sat., <7 dB NF. For DAS, FOG, FBG. Packages: BTF, chip, HOSA/HybridXwave.<br/><br/><strong>Comms SOA / Switch:</strong> ≥20 dB gain, ER >60 dB, Super L-band >100 nm, PDG <3 dB.<br/><br/>🌐 <a href="https://www.denselight.com/products/soa-for-comms/" target="_blank" style="color:var(--acc)">View SOA Products →</a>'},
+  {k:['hosa','hybridxwave','3d photonic integration','hybrid optical sub-assembly'],
+   a:'<strong>HOSA</strong> and <strong>HybridXwave</strong> are DenseLight\'s 3D photonic integration platforms enabling advanced packaging of SOAs and lasers with silicon photonics or planar lightwave circuits for next-gen PICs.'},
+  {k:['gain chip','itla chip','ecl chip','tunable laser chip','external cavity laser'],
+   a:'<strong>Gain Chips</strong> cover 1260–1650 nm with LR-AR or HR-AR coatings. Near-circular far-field, low ASE ripple, P-side down for low thermal resistance. Compatible with Littrow/Littman designs.<br/><br/>🌐 <a href="https://www.denselight.com/products/gain-chip/" target="_blank" style="color:var(--acc)">View Gain Chips →</a>'},
+  {k:['ase source','ase broadband','amplified spontaneous emission','broadband light source','all band source'],
+   a:'The <strong>ASE Broadband Source</strong> covers O, E, S, C, L, U bands with integrated driver — plug-and-play. Higher spectral density than standalone SLEDs.<br/><br/>🌐 <a href="https://www.denselight.com/products/ase-broadband-light-source-driver/" target="_blank" style="color:var(--acc)">View ASE Source →</a>'},
+  {k:['bf21','matchbox module','compact laser module','oem laser module','cbf-9'],
+   a:'The <strong>BF21</strong> is a compact matchbox-sized Integrated NLW module with built-in driver and TEC. CW and modulated operation. Designed for easy OEM integration.<br/><br/>🌐 <a href="https://www.denselight.com/products/narrow-linewidth-laser-with-driver/" target="_blank" style="color:var(--acc)">View BF21 Module →</a>'},
+  {k:['broadband light set','broadband set','sled set'],
+   a:'The <strong>Broadband Light Set (SLED)</strong> is a complete ready-to-use kit combining SLED and complementary components.<br/><br/>🌐 <a href="https://www.denselight.com/products/broadband-light-set/" target="_blank" style="color:var(--acc)">View Broadband Light Set →</a>'},
+
+  /* ── APPLICATION QUESTIONS ── */
+  {k:['which products for das','best product for das','das products','products suited for das'],
+   a:'For <strong>Distributed Acoustic Sensing (DAS)</strong>, the recommended DenseLight products are:<br/><br/>• <strong>High Power SOA (Sensing)</strong> — ≥20 dB gain, ≥20 dBm saturation for amplifying probe signals along 50–100+ km fiber<br/>• <strong>Narrow Linewidth Lasers</strong> — for high-coherence DAS interrogators<br/>• <strong>DFB Lasers</strong> — for precise probe wavelength control<br/><br/>🌐 <a href="https://www.denselight.com/our_application/distributed-acoustic-sensing-das/" target="_blank" style="color:var(--acc)">DAS Applications →</a>'},
+  {k:['solutions for medical','medical imaging products','test and measurement products','t&m products','products for medical','products for test'],
+   a:'<strong>Medical Imaging:</strong> SLED Modules and ASE Broadband Sources are used in OCT (ophthalmology, cardiology, dermatology) for high-resolution, speckle-free imaging.<br/><br/><strong>Test & Measurement:</strong> SLEDs, ELEDs, and ASE sources are standard for WDM component testing, passive component characterization, and wavelength verification.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/medical/" target="_blank" style="color:var(--acc)">Medical →</a> | <a href="https://www.denselight.com/our_application/test-measurement/" target="_blank" style="color:var(--acc)">T&M →</a>'},
+  {k:['structural health monitoring products','shm products','solutions for shm','fbg sensing','fiber bragg','bridge monitoring','infrastructure monitoring'],
+   a:'For <strong>Structural Health Monitoring (SHM)</strong>:<br/><br/>• <strong>SLED Modules</strong> — broadband source for FBG interrogators measuring strain and temperature in bridges, aircraft, and offshore structures<br/>• <strong>DFB Lasers</strong> — single-wavelength precision for targeted FBG sensing<br/>• <strong>Low DOP SLED</strong> — for FBGL sensing<br/><br/>🌐 <a href="https://www.denselight.com/our_application/structural-health-monitoring" target="_blank" style="color:var(--acc)">SHM Applications →</a>'},
+  {k:['industry standards','compliant','standards compliance','telcordia certified','are products certified','certification standards'],
+   a:'Yes! DenseLight products comply with key industry standards:<br/><br/>• <strong>Telcordia GR-468-CORE</strong> — reliability qualification including accelerated ageing, burn-in, and environmental stress testing<br/>• <strong>Eye Safety Standards</strong> — products are classified for appropriate laser safety categories<br/>• <strong>RoHS / REACH</strong> — environmental compliance (documentation available on request)<br/><br/>For specific compliance documentation: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['oct','optical coherence tomography','oct imaging','ophthalmology','cardiology imaging','oct light source'],
+   a:'DenseLight SLEDs and ASE sources are widely used in <strong>OCT</strong> for ophthalmology, cardiology, and dermatology. Broad low-coherence spectrum provides high axial resolution and eliminates speckle.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/medical/" target="_blank" style="color:var(--acc)">Medical Applications →</a>'},
+  {k:['das','distributed acoustic sensing','pipeline monitoring','seismic sensing','das interrogator'],
+   a:'For <strong>DAS</strong>, DenseLight SOAs amplify probe signals along 50–100+ km fiber runs. ≥20 dB gain, ≥20 dBm saturation, optimized for DAS interrogators.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/distributed-acoustic-sensing-das/" target="_blank" style="color:var(--acc)">DAS Applications →</a>'},
+  {k:['5g application','5g fronthaul','5g cran','fronthaul','open ran'],
+   a:'DenseLight supports 5G with CW DFB 25G lasers for fronthaul/C-RAN, plus SOA switches (ER >60 dB) for high-speed optical switching.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/5g/" target="_blank" style="color:var(--acc)">5G Applications →</a>'},
+  {k:['data center','silicon photonics','sip','photonic integrated circuit','coherent transceiver','datacom application'],
+   a:'For data centers and silicon photonics: CW DFB 25G (O/C-band), SOA switches (ER >60 dB), gain chips for ITLA/ECL. "Twinning" matches DFB + SOA pairs for silicon PIC integration.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/sip-solutions-for-sensing-communications/" target="_blank" style="color:var(--acc)">SiP Solutions →</a>'},
+  {k:['coherent communication','coherent optical','coherent system','dwdm coherent'],
+   a:'DenseLight supports coherent comms with SOA switches (ER >60 dB), Super L-band SOAs (>100 nm bandwidth), and gain chips for ITLA/ECL tunable lasers.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/coherent-communications/" target="_blank" style="color:var(--acc)">Coherent Communications →</a>'},
+  {k:['test measurement','test and measurement','component testing','wdm testing','passive component testing'],
+   a:'DenseLight SLEDs, ELEDs, and ASE sources are standard T&M tools for WDM component testing, passive component characterization, and wavelength verification.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/test-measurement/" target="_blank" style="color:var(--acc)">T&M Applications →</a>'},
+  {k:['spectroscopy','raman','nir spectroscopy','absorption','near infrared spectroscopy'],
+   a:'DenseLight SLEDs, ELEDs, and ASE sources are widely used in <strong>NIR Spectroscopy</strong> for material characterization, Raman, and absorption measurements.'},
+  {k:['guidance navigation','inertial navigation','fog application'],
+   a:'DenseLight Low DOP SLEDs are the preferred source for Fiber Optic Gyroscopes (FOG) in precision inertial navigation — aerospace, marine, and autonomous systems.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/guidance-navigation/" target="_blank" style="color:var(--acc)">Guidance & Navigation →</a>'},
+  {k:['defense application','security application','perimeter defense','ir surveillance','military'],
+   a:'DenseLight provides photonic components for Defense & Security including perimeter sensing, IR surveillance, and secure navigation. Contact us for requirements:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['wind lidar','doppler wind','offshore wind','wind sensing'],
+   a:'DenseLight NLW Lasers with <10 kHz linewidth enable Doppler wind detection beyond 10 km range. Used in offshore wind farms, aviation safety, and atmospheric research.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/wind-lidar/" target="_blank" style="color:var(--acc)">Wind LiDAR Applications →</a>'},
+  {k:['automotive lidar','adas','autonomous vehicle','fmcw lidar'],
+   a:'DenseLight\'s <strong>NLW Automotive LiDAR Laser</strong> — eye-safe 1550 nm, 100 kHz linewidth, SMSR >55 dB — supports ADAS and autonomous vehicles from chip to system level.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/automotive-lidar/" target="_blank" style="color:var(--acc)">Automotive LiDAR Applications →</a>'},
+  {k:['gas sensing application','methane sensing','co2 sensing','tdlas','industrial gas'],
+   a:'DenseLight DFB lasers (especially 1653 nm for CH₄) power TDLAS gas analyzers. Also covers CO₂ and HF. SMSR >40 dB ensures precise molecular absorption measurements.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/gas-sensing/" target="_blank" style="color:var(--acc)">Gas Sensing Applications →</a>'},
+  {k:['medical application','biomedical','biophotonics','medical device'],
+   a:'DenseLight serves healthcare with SLEDs and ASE sources for OCT, biomedical diagnostics, and medical spectroscopy.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/medical/" target="_blank" style="color:var(--acc)">Medical Applications →</a>'},
+
+  /* ── TELECOM / DATACOM SPECIFICS ── */
+  {k:['dwdm','dwdm compatible','dwdm system','wavelength division multiplexing'],
+   a:'Yes. DenseLight\'s <strong>CW DFB 25G Lasers</strong> are available on <strong>C-band DWDM-ITU grid</strong> wavelengths, making them directly compatible with standard DWDM telecom systems and transponders.'},
+  {k:['100g','400g','100g coherent','400g coherent','100 gigabit','400 gigabit','coherent transmission'],
+   a:'DenseLight\'s <strong>Gain Chips</strong> and <strong>SOA switches</strong> are key building blocks for <strong>100G and 400G coherent transceivers</strong>. Gain chips cover 1260–1650 nm for ITLA/ECL tunable laser assemblies used in coherent pluggables. The DS-SA SOA switch (ER >60 dB, Super L-band >100 nm) supports high-speed coherent switching architectures.'},
+  {k:['5g fronthaul','5g backhaul','fronthaul backhaul','cran','fronthaul application'],
+   a:'DenseLight supports <strong>5G fronthaul and C-RAN</strong> with CW DFB 25G lasers covering O-band (1270/1290/1310/1330 nm) and C-band DWDM. These are used as light sources in WDM-PoN and CPRI/eCPRI fronthaul links.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/5g/" target="_blank" style="color:var(--acc)">5G Applications →</a>'},
+  {k:['itu grid','itu compliant','itu standard','itu wavelength'],
+   a:'DenseLight\'s CW DFB 25G lasers are available on <strong>ITU C-band DWDM grid</strong> wavelengths, compliant with ITU-T G.694.1 specifications for dense wavelength division multiplexing systems.'},
+
+  /* ── SENSING-SPECIFIC TECH QUESTIONS ── */
+  {k:['dts','distributed temperature sensing','temperature sensing fiber','temperature fiber sensor'],
+   a:'DenseLight <strong>SLEDs and ASE broadband sources</strong> can be used as light sources in <strong>Distributed Temperature Sensing (DTS)</strong> systems that use Raman backscatter in optical fiber. The broad, stable spectrum and low coherence make them suitable for interrogating long fiber runs. Contact our team for specific application guidance: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['oil and gas','oil gas pipeline','pipeline monitoring','downhole','subsea'],
+   a:'DenseLight products are used in <strong>oil & gas pipeline monitoring</strong> and downhole sensing via Distributed Acoustic Sensing (DAS) and structural health monitoring. Our high-power SOAs amplify sensing signals over long pipeline runs, while SLEDs and DFB lasers serve as probe sources.<br/><br/>🌐 <a href="https://www.denselight.com/our_application/distributed-acoustic-sensing-das/" target="_blank" style="color:var(--acc)">DAS Applications →</a>'},
+  {k:['vibration resistant','harsh environment','ruggedized','shock resistant','mil-spec','outdoor environment'],
+   a:'DenseLight products are qualified to <strong>Telcordia GR-468-CORE</strong>, which includes mechanical shock, vibration, temperature cycling, and humidity tests. For specific MIL-SPEC or ruggedization requirements, please contact our engineering team: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['fiber optic gyroscope','fog','gyroscope sled','fog sled','fog sensor'],
+   a:'DenseLight\'s <strong>Low DOP SLED</strong> is the recommended product for Fiber Optic Gyroscopes (FOG). The ultra-low Degree of Polarization minimizes polarization-induced noise — directly improving gyroscope bias stability and navigation accuracy. Available at 1310 nm and 1550 nm.<br/><br/>🌐 <a href="https://www.denselight.com/products/low-dop-sled/" target="_blank" style="color:var(--acc)">View Low DOP SLED →</a>'},
+
+  /* ── MEDICAL / INDUSTRIAL SPECIFICS ── */
+  {k:['biocompatibility','biocompatible','biocompatibility documentation','medical grade','medical certification'],
+   a:'DenseLight supplies <strong>photonic components</strong> (not finished medical devices), so biocompatibility certification applies to the system integrator\'s product, not the component itself. However, our components are manufactured in a Class 100/1000 cleanroom to the highest quality standards. For documentation to support your medical device application, please contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['cleanroom operation','cleanroom compatible','cleanroom environment','class 100 compatible'],
+   a:'Yes — DenseLight products are manufactured in a <strong>15,000 ft² Class 100/1000 cleanroom</strong> in Singapore. Our devices are packaged in hermetically sealed housings (14-pin butterfly, sealed modules) suitable for use in cleanroom environments and precision instruments.'},
+
+  /* ── TECHNICAL SPECS ── */
+  {k:['wavelength range sled','sled wavelength','what wavelength sled','sled wavelength support'],
+   a:'DenseLight SLEDs support a broad wavelength range of <strong>1250–1700 nm</strong> across all major telecom and sensing bands — O, E, S, C, L, and U bands. Custom wavelengths are also available on request. PMF versions are available for polarization-sensitive applications.'},
+  {k:['output power stability','power stability temperature','power stability over temperature','temperature power drift'],
+   a:'DenseLight products include built-in <strong>TEC (Thermoelectric Cooler)</strong> in butterfly and module packages to actively stabilize output power and wavelength over temperature. Integrated modules (BX9/BX10/BZ1, BF21) include a built-in TEC controller for stable operation across a wide ambient temperature range. For detailed stability specs, please request the relevant datasheet: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['linewidth','typical linewidth','linewidth specification','laser linewidth'],
+   a:'Linewidth varies by product:<br/>• <strong>DFB Lasers:</strong> Typically in the <strong>MHz range</strong> — suitable for gas sensing and telecom<br/>• <strong>NLW Wind LiDAR Laser:</strong> <strong><10 kHz</strong> — coherence length >10 km<br/>• <strong>NLW Automotive LiDAR:</strong> <strong>100 kHz</strong> — coherence ~1 km<br/>• <strong>FP Lasers:</strong> Multi-mode — no defined linewidth<br/>• <strong>SLEDs/ASE:</strong> Very broad spectrum (25–100 nm) — essentially incoherent'},
+  {k:['operating temperature','temperature range','temp range','temperature limits','operating temp'],
+   a:'Typical operating temperature ranges:<br/>• <strong>DFB Lasers (TO-can):</strong> –40°C to +85°C<br/>• <strong>SLED Modules (14-pin BTF with TEC):</strong> –40°C to +70°C (product-dependent)<br/>• <strong>Integrated Modules (BX/BZ/BF21):</strong> TEC-stabilized for stable operation over a wide ambient range<br/><br/>For specific product temperature specs, please request a datasheet: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['tunable laser','tunable laser options','wavelength tunable','tuneable laser','tunable source'],
+   a:'DenseLight\'s <strong>Gain Chips</strong> (1260–1650 nm) are designed specifically for use in <strong>External Cavity Tunable Laser (ECTL)</strong> and <strong>ITLA (Integrable Tunable Laser Assembly)</strong> designs. The gain chip provides broadband gain; the external cavity (Littrow or Littman configuration) provides tunability. DenseLight does not sell complete standalone tunable laser systems, but the gain chip is the core photonic element.<br/><br/>🌐 <a href="https://www.denselight.com/products/gain-chip/" target="_blank" style="color:var(--acc)">View Gain Chips →</a>'},
+  {k:['rin','relative intensity noise','rin performance','noise performance sled'],
+   a:'DenseLight SLEDs feature <strong>RIN (Relative Intensity Noise)</strong> in the range of <strong>–140 to –125 dB/Hz</strong>, depending on the operating point and spectral width. Lower drive current gives lower RIN but narrower spectrum; higher drive current gives broader spectrum with slightly higher RIN. For precise RIN specs for your application, request a datasheet: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['coherence length','coherence','low coherence','long coherence'],
+   a:'Coherence depends on the product type:<br/>• <strong>SLEDs/ELEDs:</strong> Very short coherence (µm to mm range) — ideal for OCT and sensing to eliminate speckle<br/>• <strong>NLW Wind LiDAR:</strong> Coherence <strong>>10 km</strong> (linewidth <10 kHz)<br/>• <strong>NLW Automotive LiDAR:</strong> ~1 km coherence (100 kHz linewidth)<br/>• <strong>DFB Lasers:</strong> Tens of metres coherence (MHz linewidth)'},
+  {k:['lifetime','mttf','mtbf','product lifetime','laser lifetime','mean time to failure','reliability data'],
+   a:'DenseLight products are qualified to <strong>Telcordia GR-468-CORE</strong>, which includes accelerated life testing (HTOL) to project MTTF/MTBF in field conditions. For specific MTTF/MTBF reliability data for a product, please request the reliability report: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['butterfly package','to-can package','to can package','do you provide butterfly','butterfly or to can'],
+   a:'Yes — DenseLight offers both package types:<br/>• <strong>14-pin Butterfly (BTF):</strong> SLEDs, Low DOP SLEDs, SOAs, Gain Chips — includes fiber pigtail and TEC<br/>• <strong>TO-can:</strong> DFB Lasers, ELEDs — compact, lower-cost package<br/>• <strong>Sealed Modules:</strong> BX9/BX10/BZ1 (SLED+driver), BF21 (NLW+driver), ASE modules'},
+  {k:['fiber coupling','smf','pmf','single mode fiber','polarization maintaining','fiber pigtail','fiber option'],
+   a:'DenseLight products support multiple fiber coupling options:<br/>• <strong>SMF (Single-Mode Fiber):</strong> Standard option for most butterfly-packaged SLEDs, DFBs, SOAs<br/>• <strong>PMF (Polarization-Maintaining Fiber):</strong> Available for SLED Modules — critical for FOG and polarization-sensitive sensing applications<br/>• <strong>Fiber-pigtailed:</strong> Available for ELEDs in TO package<br/>• <strong>Free-space / bare chip:</strong> Available for gain chips and bare die products'},
+  {k:['telcordia','gr-468','reliability','certification','certified','qualification'],
+   a:'DenseLight products are qualified to <strong>Telcordia GR-468-CORE</strong> — including accelerated ageing, burn-in testing, temperature cycling, humidity, and mechanical shock tests for long-term field reliability.'},
+  {k:['smsr','side mode suppression','single mode'],
+   a:'DenseLight lasers feature excellent SMSR:<br/>• <strong>DFB Lasers:</strong> SMSR >40 dB<br/>• <strong>Narrow Linewidth Lasers:</strong> SMSR >55 dB'},
+  {k:['compare','difference between','sled vs eled','dfb vs fp','which is better','what is the difference'],
+   a:'<strong>SLED vs ELED:</strong> SLEDs = higher power & broader bandwidth; ELEDs = lower cost.<br/><strong>DFB vs FP:</strong> DFB = single-mode, SMSR >40 dB; FP = multi-mode but up to 200 mW, lower cost.<br/><strong>Wind vs Automotive NLW:</strong> Wind = <10 kHz/>10 km coherence; Automotive = 1550 nm eye-safe, 100 kHz.<br/><br/>Need help choosing the right product? Contact <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>',
+   chips:['Browse products by industry','Schedule a technical call']},
+  {k:['wavelength','nm','telecom band','o-band','c-band','l-band','e-band','s-band','u-band','wavelength range'],
+   a:'DenseLight products span all major telecom and sensing bands:<br/>• <strong>O-Band:</strong> 1260–1360 nm<br/>• <strong>E-Band:</strong> 1360–1460 nm<br/>• <strong>S-Band:</strong> 1460–1530 nm<br/>• <strong>C-Band:</strong> 1530–1565 nm<br/>• <strong>L-Band:</strong> 1565–1625 nm<br/>• <strong>U-Band:</strong> 1625–1675 nm<br/>• <strong>Special:</strong> 1653 nm (CH₄ gas), 1550 nm (automotive LiDAR)'},
+  {k:['package','package type','14-pin','14 pin'],
+   a:'DenseLight devices are available in multiple formats:<br/>• <strong>14-pin Butterfly:</strong> SLEDs, Low DOP SLEDs, SOAs<br/>• <strong>TO-can:</strong> DFB Lasers, ELEDs<br/>• <strong>Bare Chip / Die:</strong> DFB, FP, Gain Chip, SOA<br/>• <strong>Chip-on-Submount:</strong> SOAs, Gain Chips<br/>• <strong>Sealed Module:</strong> BX9/BX10/BZ1, BF21, ASE<br/>• <strong>HOSA/HybridXwave:</strong> 3D photonic integration'},
+  {k:['rohs','rohs compliance','environmental compliance','reach'],
+   a:'RoHS/REACH compliance documentation is available on request for specific products. Please contact:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['pmf','polarization maintaining fiber','pm fiber'],
+   a:'Yes — DenseLight offers <strong>PMF (Polarization-Maintaining Fiber)</strong> versions of SLED modules for applications requiring output polarization control, such as FOG and interferometric sensing.'},
+
+  /* ── MANUFACTURING & CUSTOMIZATION ── */
+  {k:['custom design','product development','custom product','custom wavelength','oem product','bespoke','tailored','special order','custom packaging','customiz'],
+   a:'Yes — DenseLight offers <strong>custom and OEM product development</strong>:<br/><br/>• Custom wavelengths across 1250–1700 nm<br/>• Custom output power levels and beam profiles<br/>• Custom packaging and form factors<br/>• Photonic integration with customer platforms (silicon photonics, PLCs)<br/>• Private label / OEM branding<br/><br/>Our in-house wafer fab enables true custom solutions from the chip level up. Contact our engineering team:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['fabrication capabilities','testing capabilities','fab capabilities','what can you fabricate','manufacturing capabilities'],
+   a:'DenseLight\'s in-house capabilities include:<br/><br/>• <strong>III-V Wafer Fabrication:</strong> InP/InGaAsP epitaxial growth, wafer processing in Class 100/1000 cleanroom<br/>• <strong>Chip Design:</strong> Proprietary photonic IC and laser chip design<br/>• <strong>Packaging:</strong> 14-pin butterfly, TO-can, bare chip, modules, HOSA/HybridXwave 3D integration<br/>• <strong>Testing:</strong> Automated optical and electrical characterization, burn-in, environmental stress testing<br/>• <strong>Reliability Qualification:</strong> Telcordia GR-468-CORE testing'},
+  {k:['wafer fabrication','wafer service','wafer fab service','do you offer wafer'],
+   a:'DenseLight operates its own <strong>Class 100/1000 cleanroom wafer fabrication facility</strong> in Singapore for internal production of InP/InGaAsP devices. For enquiries about wafer-level custom work or foundry services, please contact:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['production capacity','monthly capacity','production volume','manufacturing volume'],
+   a:'For information about DenseLight\'s production capacity and volume availability for your project, please contact our sales team who can advise based on current scheduling:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['private label','oem branding','private labelling'],
+   a:'Yes — DenseLight supports <strong>OEM/private label</strong> arrangements. Products can be supplied under your brand or as unbranded components for integration into your own instruments or systems. Contact us to discuss terms:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['burn-in testing','burn in test','burn in','product burn in'],
+   a:'Yes — <strong>burn-in testing</strong> is part of DenseLight\'s standard Telcordia GR-468-CORE qualification process. Accelerated burn-in screens out early-life failures before products are shipped. For product-specific burn-in records, contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['quality assurance','qa process','quality process','quality control','qc process'],
+   a:'DenseLight\'s quality assurance process covers the full product lifecycle:<br/><br/>• Wafer-level electrical and optical characterization<br/>• Visual and dimensional inspection<br/>• Automated final test (optical power, wavelength, spectral properties)<br/>• Environmental and reliability qualification (Telcordia GR-468-CORE)<br/>• Burn-in screening<br/>• Outgoing quality inspection before shipment<br/><br/>For QA documentation: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['prototyping','prototype before production','npd','new product development','proto before mass'],
+   a:'Yes — DenseLight supports <strong>prototyping and pilot runs</strong> before mass production. Our engineering team can work with you through the development cycle from concept to qualified product. For NDA and project discussions: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['testing standards','what testing standards','standards followed','testing qualification'],
+   a:'DenseLight follows these key testing and qualification standards:<br/><br/>• <strong>Telcordia GR-468-CORE</strong> — primary reliability qualification standard<br/>• <strong>IEC 60825</strong> — laser safety classification<br/>• <strong>RoHS / REACH</strong> — environmental compliance<br/>• Internal automated optical and electrical test specifications<br/><br/>For specific test reports: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── COMMERCIAL & PROCUREMENT ── */
+  {k:['price','pricing','cost','how much','rate','price list'],
+   a:'For product pricing, please contact our sales team — provide the product model, quantity, and your application for an accurate quote:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['quote','request quote','quotation','get a quote','how do i request a quote'],
+   a:'To request a formal quote:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989<br/><br/>💡 Or browse to a specific product above and click <strong>"Request a Quote / Purchase"</strong> to generate a pre-filled enquiry email.',
+   chips:['Browse products to request a quote']},
+  {k:['moq','minimum order','minimum order quantity','minimum quantity'],
+   a:'MOQ varies by product and configuration. For current MOQ information on a specific product, contact our sales team:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['volume discount','bulk discount','volume pricing','quantity discount'],
+   a:'Volume pricing is available for larger orders. Contact sales to discuss volume terms:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['lead time','delivery time','how long to deliver','turnaround time','standard lead time'],
+   a:'Lead times vary by product, configuration, and production schedule. For current lead time on a specific product:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['shipping','delivery','ship to','do you ship','international shipping','global shipping'],
+   a:'DenseLight ships internationally to <strong>40+ countries</strong> worldwide. For shipping timelines, freight arrangements, and customs documentation:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['payment terms','payment','invoice','payment method','standard payment'],
+   a:'Payment terms are agreed at time of order. For payment terms and accepted payment methods:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['incoterms','fob','cif','exw','dap','shipping terms','trade terms'],
+   a:'DenseLight supports standard international <strong>Incoterms</strong> (FOB, CIF, EXW, DAP etc.) depending on the order and destination. For shipping terms on your order:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['nda','non-disclosure','confidentiality agreement','nda before discussion','nda before meeting'],
+   a:'Yes — DenseLight is open to signing <strong>NDAs (Non-Disclosure Agreements)</strong> before technical discussions or sharing proprietary documentation. To initiate an NDA:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> or 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['long-term supply','supply agreement','lta','blanket order','long term contract','supply contract'],
+   a:'DenseLight supports <strong>long-term supply agreements (LTAs)</strong> and blanket purchase orders for customers with recurring volume needs. This helps secure price, priority production allocation, and scheduled delivery. Contact us to discuss:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['oem contract','oem bulk','oem agreement','bulk oem'],
+   a:'DenseLight supports <strong>OEM and bulk contracts</strong> including volume pricing, private labelling, custom packaging, and dedicated supply arrangements. Contact our sales team to discuss your requirements:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['order status','track order','where is my order','order tracking','check order'],
+   a:'For order status and tracking, please contact our sales team with your purchase order number:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['custom order documents','documents for custom order','what documents needed','custom order requirements'],
+   a:'For custom orders, DenseLight typically requires:<br/><br/>• <strong>Technical specification sheet</strong> — wavelength, power, package, performance requirements<br/>• <strong>Application description</strong> — to ensure optimal product design<br/>• <strong>NDA</strong> (if applicable) — for proprietary specifications<br/>• <strong>Purchase Order / RFQ</strong> — to formalise the engagement<br/><br/>To start: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['sample','engineering sample','evaluation sample','evaluation kit','eval kit','trial unit','request sample'],
+   a:'DenseLight offers <strong>engineering samples</strong> for product evaluation. To request a sample, please provide: product of interest, your application, and company details.<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['datasheet','spec sheet','technical specification','documentation','pdf datasheet','technical data','performance spec'],
+   a:'Product datasheets and technical specifications are available on request:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>🌐 <a href="https://www.denselight.com/resources/" target="_blank" style="color:var(--acc)">denselight.com/resources</a>'},
+  {k:['warranty','guarantee','product warranty','warranty policy','warranty period'],
+   a:'DenseLight products are manufactured to Telcordia GR-468-CORE reliability standards. For specific warranty terms:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 +65 6415 4422'},
+  {k:['rma','return','return policy','repair','defective','after sales'],
+   a:'For RMA, repairs, or after-sales support, please contact with your order details and serial number:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 +65 6415 4422'},
+  {k:['technical support','tech support','application support','troubleshooting','integration support'],
+   a:'DenseLight provides full <strong>technical and application support</strong> — product selection, integration guidance, and troubleshooting:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['stock','availability','in stock','inventory','ready stock'],
+   a:'Standard catalog products are held in inventory. To check current stock availability:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+
+  /* ── DOCUMENTATION & COMPLIANCE ── */
+  {k:['download datasheets','brochures','downloads','where to download','product brochure','brochure download','find brochures'],
+   a:'Product datasheets, brochures, and technical resources are available at:<br/><br/>🌐 <a href="https://www.denselight.com/resources/" target="_blank" style="color:var(--acc)">denselight.com/resources</a><br/><br/>For datasheets not listed publicly, contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['iso','iso certification','iso 9001','quality system','quality certification'],
+   a:'For the latest quality certification and management system documentation, please contact:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 +65 6415 4422'},
+  {k:['export control','export license','export documentation','itar','eccn','export compliance'],
+   a:'DenseLight complies with applicable export control regulations for photonic semiconductor components. For export control documentation (ECCN classification, export license requirements for your destination):<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['mtbf','mttf','reliability report','reliability data','failure rate'],
+   a:'DenseLight products are Telcordia GR-468-CORE qualified, which includes HTOL (High Temperature Operating Life) testing to derive MTTF/MTBF projections. For specific reliability reports on a product:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['iec laser safety','iec 60825','laser safety','laser class','safety standard'],
+   a:'DenseLight\'s laser products are classified in accordance with <strong>IEC 60825</strong> laser safety standards. The specific class depends on the product and configuration (e.g., the 1550 nm NLW Automotive LiDAR is designed for eye-safe operation). For laser safety documentation on a specific product:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['compliance documents','certification documents','where to get certification','compliance info'],
+   a:'Compliance and certification documentation (Telcordia, RoHS/REACH, ISO, laser safety) is available on request. Please specify the product and the certification type required:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── PARTNERSHIP & DISTRIBUTION ── */
+  {k:['become partner','channel partner','how to become reseller','distribution partner','become reseller'],
+   a:'DenseLight welcomes enquiries from potential channel partners and distributors. For partnership discussions:<br/><br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>🌐 <a href="https://www.denselight.com/find-a-partner/" target="_blank" style="color:var(--acc)">Find a Partner →</a>'},
+  {k:['distributor','reseller','partner','representative','find a partner','global partner','channel partner'],
+   a:'DenseLight works with a global distribution network across Asia, Europe, North America and beyond. To find a partner in your region:<br/>🌐 <a href="https://www.denselight.com/find-a-partner/" target="_blank" style="color:var(--acc)">denselight.com/find-a-partner</a><br/><br/>Partnership enquiries: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['distributors india','india distributor','india partner','india reseller'],
+   a:'For information about DenseLight\'s distributors or representatives in <strong>India</strong>, please check our partner network page or contact us directly — we can connect you with the appropriate regional partner:<br/><br/>🌐 <a href="https://www.denselight.com/find-a-partner/" target="_blank" style="color:var(--acc)">denselight.com/find-a-partner</a><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['technical training partners','training for partners','partner training','reseller training'],
+   a:'DenseLight provides <strong>technical training and application support</strong> for partners and distributors — covering product specifications, application guidance, and integration know-how. Contact us to enquire about partner training programmes:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['joint development','jdp','joint development program','collaborative development','co-development'],
+   a:'DenseLight is open to <strong>joint development programmes (JDPs)</strong> for custom photonic components and integrated solutions. We have collaborated with system integrators and OEMs on tailored product development. To explore a JDP:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['university collaboration','research collaboration','academic partnership','university research','research partner','research agreement'],
+   a:'DenseLight supports <strong>research collaborations with universities and research institutes</strong> in photonics and semiconductor technology. If you are a researcher interested in collaboration:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 +65 6415 4422'},
+
+  /* ── CONTACT & GENERAL ── */
+  {k:['contact','how to contact','reach denselight','get in touch','contact denselight'],
+   a:'📧 <strong>Sales:</strong> <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📧 <strong>General:</strong> <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 <strong>Sales:</strong> +65 6415 7989<br/>📞 <strong>Corporate:</strong> +65 6415 4422<br/>📍 6 Changi North Street 2, #498831, Singapore<br/>🌐 <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">Contact form →</a>'},
+  {k:['singapore office contact','contact singapore office','singapore phone','singapore address'],
+   a:'DenseLight\'s Singapore headquarters:<br/><br/>📍 6 Changi North Street 2, #498831, Singapore<br/>📞 Sales: +65 6415 7989<br/>📞 Corporate: +65 6415 4422<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['sales email','email address','email denselight'],
+   a:'📧 Sales: <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📧 General: <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['phone number','phone','telephone','call denselight','contact number'],
+   a:'📞 Sales: <strong>+65 6415 7989</strong><br/>📞 Corporate: <strong>+65 6415 4422</strong>'},
+  {k:['website','web address','url','denselight website'],
+   a:'🌐 <a href="https://www.denselight.com" target="_blank" style="color:var(--acc)">www.denselight.com</a><br/>Products: <a href="https://www.denselight.com/products/" target="_blank" style="color:var(--acc)">denselight.com/products</a>'},
+  {k:['schedule meeting','book a meeting','arrange a call','technical call','speak to engineer','request demo','demo request','request a demo'],
+   a:'To schedule a technical discussion or demo with DenseLight\'s engineering team, please reach out directly:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989<br/><br/>Please briefly describe your application and the product(s) of interest so we can connect you with the right engineer.'},
+  {k:['technical blog','whitepaper','application note','technical resources','knowledge base','blog'],
+   a:'DenseLight\'s technical resources, application notes, and documentation are available at:<br/>🌐 <a href="https://www.denselight.com/resources/" target="_blank" style="color:var(--acc)">denselight.com/resources</a><br/><br/>For specific application notes or whitepapers on a topic, contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── CAREERS & INTERNSHIPS ── */
+  {k:['career','job','hiring','vacancy','work at denselight','job opening','join denselight','recruitment'],
+   a:'For career opportunities at DenseLight, visit our careers page:<br/>🌐 <a href="https://www.denselight.com/careers/" target="_blank" style="color:var(--acc)">denselight.com/careers</a><br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['internship','intern','student internship','photonics internship','engineering internship'],
+   a:'DenseLight occasionally offers <strong>internship opportunities</strong> in photonics engineering and semiconductor research. For current internship openings or to enquire:<br/>🌐 <a href="https://www.denselight.com/careers/" target="_blank" style="color:var(--acc)">denselight.com/careers</a><br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+  {k:['qualifications to join','requirements to join','what qualifications','hiring requirements','engineering qualifications'],
+   a:'DenseLight looks for candidates with backgrounds in photonics, optoelectronics, semiconductor physics, electrical engineering, and related fields. For current job requirements and qualifications for specific roles, please check:<br/>🌐 <a href="https://www.denselight.com/careers/" target="_blank" style="color:var(--acc)">denselight.com/careers</a>'},
+  {k:['submit resume','send cv','apply job','how to apply','where to submit cv'],
+   a:'To apply for a position at DenseLight, please submit your resume/CV to:<br/>📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/><br/>You can also check for current openings at:<br/>🌐 <a href="https://www.denselight.com/careers/" target="_blank" style="color:var(--acc)">denselight.com/careers</a>'},
+
+  /* ── LEAD QUALIFICATION QUESTIONS ── */
+  {k:['what is your application','my application area','application area','use case','my use case'],
+   a:'That\'s a great starting point! DenseLight serves several application areas. To help you find the right product, please tell me your application — or browse by industry using the option above.<br/><br/>Common applications include: OCT, DAS, Wind LiDAR, Automotive LiDAR, Gas Sensing, 5G/Datacom, Structural Health Monitoring, Spectroscopy, and more.',
+   chips:['Browse by industry','OCT / Medical','LiDAR sensing','5G / Datacom','Gas sensing']},
+  {k:['what wavelength','wavelength looking for','wavelength needed','looking for wavelength','what nm'],
+   a:'DenseLight covers <strong>1250–1700 nm</strong> across all major telecom bands (O, E, S, C, L, U). Some popular wavelengths:<br/>• <strong>1310 nm / 1550 nm</strong> — sensing, telecom, navigation<br/>• <strong>1270–1330 nm</strong> — O-band datacom<br/>• <strong>1653 nm</strong> — methane (CH₄) gas sensing<br/>• <strong>1550 nm</strong> — eye-safe automotive LiDAR<br/><br/>What wavelength range are you targeting? I can suggest the right product.'},
+  {k:['annual volume','expected volume','how many units','volume requirement','quantity per year'],
+   a:'For volume and production quantity discussions, including volume pricing and supply agreements, please contact our sales team:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989<br/><br/>Mention your expected annual volume and application — we can discuss the best commercial terms.'},
+  {k:['project timeline','timeline','when do you need','target timeline','how soon','urgency','delivery urgency'],
+   a:'For timeline-sensitive requirements, please contact our sales team directly to check current lead times and production availability:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989<br/><br/>For urgent requirements, calling +65 6415 7989 ensures the fastest response.'},
+  {k:['evaluating vendors','multiple vendors','comparing vendors','vendor evaluation','comparing suppliers'],
+   a:'We understand you may be evaluating multiple photonics vendors. DenseLight differentiates through:<br/><br/>• <strong>25+ years</strong> of III-V photonics expertise and 65+ patents<br/>• <strong>In-house wafer fab</strong> — full vertical control from chip to module<br/>• <strong>Telcordia GR-468-CORE</strong> qualified products<br/>• Broad product portfolio covering all major bands (1250–1700 nm)<br/>• Custom and OEM capabilities<br/>• Serving customers in <strong>40+ countries</strong><br/><br/>We\'d be happy to provide samples or arrange a technical discussion: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['decision maker','procurement process','who decides','purchasing process','buying process'],
+   a:'For complex or strategic purchases, DenseLight\'s sales and applications engineering team can support your procurement process with technical documentation, samples, qualification reports, and direct engagement with your team. Contact us to arrange:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['budget','budget range','rough budget','what is the budget'],
+   a:'DenseLight offers products across a range of price points — from cost-effective ELEDs and FP Lasers through to advanced NLW Laser modules. To get an accurate quote aligned to your budget and requirements:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+  {k:['individual or company','contacting as individual','contacting as company','are you a company','individual enquiry'],
+   a:'Whether you are reaching out as an individual researcher, a startup, an enterprise engineering team, or a university — DenseLight\'s team is happy to help. Just let us know your context and application, and we will connect you with the right support:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+  {k:['technical call with engineer','speak to engineer','call with engineer','engineer consultation','technical consultation'],
+   a:'Absolutely! DenseLight\'s applications engineers are available for technical consultations. To request a call:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> — please mention that you would like a technical call<br/>📞 +65 6415 7989<br/><br/>Please briefly describe your application and the product(s) you\'re interested in.'},
+
+  /* ── MISC ── */
+  {k:['thank','thanks','thank you','appreciate','helpful','that helps'],
+   a:'You are most welcome! 😊 Is there anything else I can assist you with regarding DenseLight?',
+   chips:['Browse products','Contact sales','More about DenseLight']},
+  {k:['okay','ok','got it','alright','great','perfect','good','understood'],
+   a:'Great! Feel free to ask anything else about DenseLight products or services.',
+   chips:['Browse by industry','Request a quote','What products do you offer?']},
+  {k:['what can you help','what do you know','capabilities','help me','what topics'],
+   a:'I can help with:<br/><br/>📦 <strong>Products</strong> — specs, features, all 14 DenseLight products<br/>🏭 <strong>Industries</strong> — which products suit your application<br/>🔬 <strong>Applications</strong> — OCT, DAS, LiDAR, 5G, gas sensing and more<br/>⚙️ <strong>Technical</strong> — wavelengths, linewidth, coherence, packages, RIN, MTTF<br/>💰 <strong>Commercial</strong> — quotes, MOQ, lead time, samples, Incoterms, NDA<br/>📋 <strong>Documentation</strong> — datasheets, certifications, compliance<br/>🤝 <strong>Partnerships</strong> — distributors, JDPs, university collabs<br/>🏢 <strong>Company</strong> — about DenseLight, quality, careers<br/>📞 <strong>Contact</strong> — sales, support, Singapore office'},
+  {k:['industries','what industries','industry served','which industries','industries served','what industry'],
+   a:'DenseLight serves:<br/>🛰️ Sensing & Structural Health Monitoring<br/>🚗 LiDAR & Navigation<br/>🏥 Medical & Healthcare<br/>📡 Datacom, Telecom & 5G<br/>🔬 Test & Measurement<br/>🏭 Industrial & Gas Sensing<br/>🛡️ Defense & Security',
+   chips:['Browse by industry']},
+  {k:['inp','ingaasp','iii-v','semiconductor material','indium phosphide','gaas','what materials'],
+   a:'DenseLight uses <strong>InP (Indium Phosphide)</strong> and <strong>InGaAsP</strong> III-V compound semiconductors — optimised for the 1.2–1.7 µm telecom and sensing wavelength range with high gain, low noise, and high-speed modulation capability.'},
+  {k:['chinese','mandarin','chinese website','中文'],
+   a:'DenseLight has a Chinese-language website at:<br/>🌐 <a href="https://cn.denselight.com" target="_blank" style="color:var(--acc)">cn.denselight.com</a>'},
+
+  /* ── OPTICAL PERFORMANCE ── */
+  {k:['spectral bandwidth','fwhm','bandwidth fwhm','spectral width fwhm','full width half maximum'],
+   a:'The spectral bandwidth (FWHM) varies by product type:<br/><br/>• <strong>SLED Modules:</strong> 25–100 nm FWHM depending on operating current — broader bandwidth at higher drive currents<br/>• <strong>ELEDs:</strong> Broad spectrum in the NIR range with very low coherence<br/>• <strong>ASE Source:</strong> Up to 100+ nm spanning multiple telecom bands (O through U)<br/>• <strong>DFB Lasers:</strong> Sub-nanometre single-mode emission (not typically defined by FWHM)<br/>• <strong>NLW Lasers:</strong> Extremely narrow linewidth (&lt;10 kHz wind LiDAR; 100 kHz automotive)<br/><br/>For product-specific FWHM data, please request the relevant datasheet:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['side mode suppression ratio','smsr','smsr value','side mode suppression'],
+   a:'DenseLight laser products offer excellent SMSR performance:<br/><br/>• <strong>DFB Lasers:</strong> SMSR &gt;40 dB — ensuring clean single-mode emission for gas sensing and telecom<br/>• <strong>Narrow Linewidth Lasers:</strong> SMSR &gt;55 dB — critical for LiDAR coherence and minimising false returns<br/>• <strong>FP Lasers:</strong> Multi-mode by design — SMSR is not applicable<br/><br/>For specific SMSR data sheets: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['polarization extinction ratio','per','polarization extinction','extinction ratio polarization'],
+   a:'The Polarization Extinction Ratio (PER) depends on the product and fibre type:<br/><br/>• <strong>PMF (Polarization-Maintaining Fibre) SLED Modules:</strong> PER is specified per product — typically &gt;20 dB for PM-pigtailed devices<br/>• <strong>SMF versions:</strong> PER is not a controlled parameter<br/>• <strong>Low DOP SLED (for FOG):</strong> Designed for ultra-low Degree of Polarization (DOP) rather than high PER — specifically engineered to reduce polarization-induced noise in gyroscopes<br/><br/>For precise PER specifications relevant to your application: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['phase noise','phase noise performance','laser phase noise','phase noise specification'],
+   a:'Phase noise performance is closely related to linewidth:<br/><br/>• <strong>DFB Lasers:</strong> MHz-range linewidth, corresponding to moderate phase noise — suitable for TDLAS and telecom applications<br/>• <strong>NLW Wind LiDAR Laser:</strong> &lt;10 kHz linewidth, yielding ultra-low phase noise — enabling coherent Doppler wind sensing beyond 10 km range<br/>• <strong>NLW Automotive LiDAR:</strong> 100 kHz linewidth with SMSR &gt;55 dB for low phase noise in FMCW LiDAR<br/><br/>For detailed phase noise spectral density plots and characterisation data: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['chirp parameter','alpha parameter','linewidth enhancement factor','henry factor','chirp','laser chirp'],
+   a:'The chirp parameter (Henry factor, α) is relevant primarily for DenseLight\'s DFB and CW DFB laser products:<br/><br/>• <strong>DFB Lasers (InGaAsP/InP):</strong> Typical α values are in the range of 3–5, consistent with InP-based MQW devices<br/>• <strong>CW DFB 25G Lasers:</strong> MQW grating design is optimised for wavelength stability and reduced chirp under direct modulation<br/><br/>For application-specific chirp characterisation data or low-chirp device options: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['frequency drift','frequency stability','wavelength drift','wavelength drift over time','long term stability','frequency drift over time'],
+   a:'DenseLight products incorporate TEC (Thermoelectric Cooler) stabilisation in butterfly and module packages, which actively controls junction temperature to minimise frequency drift:<br/><br/>• <strong>DFB Lasers:</strong> Wavelength stability is maintained through TEC control — typical thermal tuning coefficient is approximately 0.08–0.1 nm/°C<br/>• <strong>NLW Lasers:</strong> Designed for high long-term frequency stability — critical for coherent LiDAR applications<br/><br/>For long-term drift characterisation data and Allan deviation plots: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['thermal tuning coefficient','tuning coefficient','wavelength tuning temperature','temperature tuning','thermal wavelength shift'],
+   a:'Typical thermal tuning coefficients for DenseLight products:<br/><br/>• <strong>DFB Lasers:</strong> Approximately <strong>0.08–0.1 nm/°C</strong> for InGaAsP/InP devices<br/>• <strong>SLED Modules:</strong> Centre wavelength shifts with temperature; TEC stabilisation minimises this in butterfly packages<br/>• <strong>Current tuning (DFB):</strong> Approximately 0.005–0.01 nm/mA depending on device design<br/><br/>For precise tuning coefficients for a specific product and wavelength: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['wavelength locking','wavelength locker','etalon lock','wavelength stabilisation','frequency locking','locked wavelength'],
+   a:'DenseLight\'s DFB and CW DFB lasers provide inherently stable single-mode emission through the DFB grating structure, which acts as a natural wavelength selector. External wavelength locking (e.g., via etalon or FBG feedback) is not integrated into the standard module but can be implemented at the system level.<br/><br/>For applications requiring absolute wavelength locking to ITU grid channels or gas absorption lines, DenseLight\'s sales engineers can advise on the appropriate product configuration: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['osnr','optical signal to noise ratio','optical snr','signal noise ratio optical'],
+   a:'OSNR is primarily a system-level parameter dependent on launch power, amplifier configuration, and link design. At the component level, DenseLight addresses the key contributors:<br/><br/>• <strong>SOA (Sensing &amp; Comms):</strong> Noise Figure &lt;7 dB — directly impacts OSNR in amplified links<br/>• <strong>DFB Lasers:</strong> High SMSR (&gt;40 dB) and low RIN minimise noise floor contributions<br/>• <strong>NLW Lasers:</strong> SMSR &gt;55 dB ensures minimal ASE contribution<br/>• <strong>SLED/ASE Sources:</strong> RIN in the range of –140 to –125 dB/Hz<br/><br/>For OSNR budgeting support specific to your link design: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['back reflection tolerance','back reflection','optical return loss','orl','reflectance tolerance','iso reflection'],
+   a:'DenseLight products are designed to withstand typical back-reflection levels encountered in fibre-optic systems:<br/><br/>• <strong>SLED &amp; ASE Sources:</strong> Broad spectrum inherently reduces coherent back-reflection effects<br/>• <strong>DFB Lasers:</strong> Sensitive to back-reflection — use of optical isolators (FC/APC connectors or in-line isolators) is strongly recommended to prevent mode instability<br/>• <strong>FC/APC Connectors:</strong> Provided as standard on butterfly packages to minimise back-reflection (&lt;–65 dB return loss)<br/><br/>For application-specific back-reflection tolerance data: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── ENVIRONMENTAL & RELIABILITY ── */
+  {k:['storage temperature','storage temp limits','storage temperature range','non-operating temperature','shelf temperature'],
+   a:'Typical storage temperature ranges for DenseLight products:<br/><br/>• <strong>Standard butterfly modules (SLED, SOA, DFB):</strong> –40°C to +85°C non-operating storage<br/>• <strong>Sealed integrated modules (BX/BZ/BF21):</strong> –40°C to +70°C<br/>• <strong>Bare chips / die:</strong> Store in dry nitrogen environment at room temperature per standard semiconductor handling guidelines<br/><br/>Exact storage limits are product-specific. Please consult the relevant datasheet or contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['mil-std','milspec','mil spec','military standard','mil-std-883','mil-std-810','military qualified','mil qualified'],
+   a:'DenseLight products are qualified to <strong>Telcordia GR-468-CORE</strong>, which covers accelerated ageing, burn-in, temperature cycling, mechanical shock, vibration, and humidity testing — providing a rigorous reliability baseline suitable for demanding commercial and industrial applications.<br/><br/>DenseLight does not currently hold formal MIL-STD-883 or MIL-STD-810 qualification as standard. However, for defence and aerospace customers requiring specific MIL-SPEC compliance or ruggedisation, DenseLight\'s engineering team can discuss custom qualification programmes:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['vibration testing','shock testing','mechanical shock','vibration qualification','do you perform vibration'],
+   a:'Yes — vibration and mechanical shock testing is included as part of DenseLight\'s <strong>Telcordia GR-468-CORE qualification</strong>. Tests cover:<br/><br/>• Mechanical shock (multiple axes, specified g-levels)<br/>• Variable frequency vibration (sinusoidal and random)<br/>• Impact testing<br/><br/>These tests verify that packaged devices maintain optical and electrical performance under the mechanical stresses expected in field deployment. For specific test reports and g-level data: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['humidity tolerance','humidity','moisture resistance','damp heat','humidity test'],
+   a:'DenseLight products undergo humidity testing as part of <strong>Telcordia GR-468-CORE qualification</strong>:<br/><br/>• <strong>Damp heat testing:</strong> Extended exposure at elevated temperature and humidity (typically 85°C / 85% RH)<br/>• <strong>Hermetically sealed packages</strong> (14-pin butterfly, sealed modules): Provide robust moisture protection for long-term field deployment<br/>• <strong>TO-can packages:</strong> Non-hermetic; use in humid environments may require additional system-level sealing<br/><br/>For humidity test data for specific products: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['esd','electrostatic discharge','esd classification','esd rating','esd protection','antistatic'],
+   a:'DenseLight semiconductor devices are ESD-sensitive components. Standard handling precautions apply:<br/><br/>• Products should be handled in accordance with <strong>ANSI/ESD S20.20</strong> procedures — grounded wrist straps, ESD-safe workstations, antistatic packaging<br/>• ESD classification (HBM/MM) is product-dependent<br/>• All products are shipped in ESD-protective packaging<br/><br/>For the specific ESD classification (e.g., HBM Class 1C or 2) for a particular product: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['accelerated aging','accelerated ageing','htol','high temperature operating life','aging test data','ageing data'],
+   a:'Yes — accelerated ageing (HTOL — High Temperature Operating Life) testing is a core component of DenseLight\'s <strong>Telcordia GR-468-CORE qualification</strong>:<br/><br/>• Devices are stressed at elevated temperature and current to accelerate wear-out mechanisms<br/>• Results are used to project field MTTF/MTBF under nominal operating conditions using the Arrhenius model<br/>• Burn-in screening is applied to production devices to eliminate early-life failures<br/><br/>Accelerated ageing reports and MTTF projections are available on request: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['hermetically sealed','hermetic seal','hermetic package','hermetically sealed package'],
+   a:'Yes — DenseLight\'s primary product packages are hermetically sealed:<br/><br/>• <strong>14-pin Butterfly (BTF) packages:</strong> Laser-welded hermetic housing — protects die and facets from moisture and contamination<br/>• <strong>Integrated modules (BX9/BX10/BZ1, BF21, ASE):</strong> Hermetically sealed enclosures<br/>• <strong>TO-can packages:</strong> Hermetically sealed metal can<br/>• <strong>Bare chip / chip-on-submount:</strong> Non-hermetic — environmental protection is the responsibility of the system integrator<br/><br/>Hermetic seal integrity is verified as part of the Telcordia GR-468-CORE qualification process.'},
+
+  {k:['fit rate','failure in time','fit','failures per billion hours','failure rate'],
+   a:'DenseLight products are qualified to <strong>Telcordia GR-468-CORE</strong>, which includes HTOL (High Temperature Operating Life) testing to derive FIT (Failures In Time) rates using the Arrhenius acceleration model.<br/><br/>FIT rates are product-specific and depend on operating conditions (temperature, current, wavelength). For FIT rate data and reliability reports for a specific product: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['radiation hardened','radiation hard','rad hard','space qualified','radiation tolerance','total ionizing dose','tid'],
+   a:'DenseLight products are not radiation-hardened as standard. The standard product range is designed for commercial, industrial, and telecom applications and has not undergone formal Total Ionising Dose (TID) or Single Event Effects (SEE) qualification.<br/><br/>For space or high-radiation-environment applications requiring radiation-hardened photonic components, DenseLight\'s engineering team is open to discussing custom development or tailored qualification programmes:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['offshore oil','oil platform','subsea environment','offshore environment','oil and gas environment','harsh offshore'],
+   a:'DenseLight products are used in oil and gas pipeline monitoring and distributed sensing applications. For offshore platform and subsea deployment:<br/><br/>• Hermetically sealed butterfly and module packages provide robust protection against moisture and contaminants<br/>• Products are Telcordia GR-468-CORE qualified, covering temperature cycling, humidity, shock, and vibration<br/>• For H₂S-rich, high-pressure, or subsea environments, system-level sealing and environmental protection are the responsibility of the instrument or enclosure designer<br/><br/>For application-specific guidance on offshore and harsh-environment deployment: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── ELECTRICAL & INTEGRATION ── */
+  {k:['drive current','drive current requirements','operating current','threshold current','laser current'],
+   a:'Drive current requirements vary by product:<br/><br/>• <strong>SLED Modules:</strong> Typically 50–500 mA depending on output power level and wavelength<br/>• <strong>DFB Lasers (TO-can):</strong> Threshold current typically 10–20 mA; operating current 30–80 mA<br/>• <strong>FP Lasers (high power):</strong> Higher drive currents for 100–200 mW output — refer to datasheet<br/>• <strong>Integrated Modules (BX/BZ/BF21):</strong> Accept a supply voltage input; internal driver manages current<br/>• <strong>SOAs:</strong> Gain current typically 100–500 mA<br/><br/>For precise I–V and L–I characterisation curves: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['forward voltage','vf','operating voltage','laser forward voltage','forward bias voltage'],
+   a:'Typical forward voltage values for DenseLight devices:<br/><br/>• <strong>DFB Lasers / FP Lasers:</strong> Approximately 1.0–1.5 V at operating current (InGaAsP/InP bandgap ~0.75–0.95 eV for 1.3–1.55 µm)<br/>• <strong>SLED Modules:</strong> Typically 1.5–2.5 V at rated drive current<br/>• <strong>SOAs:</strong> Approximately 1.2–2.0 V at operating gain current<br/><br/>Exact V–I curves for each product are provided in the datasheet. To request a datasheet: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['integrated tec','tec controller','thermoelectric cooling','tec integrated','built in tec','tec module'],
+   a:'Yes — TEC (Thermoelectric Cooling) integration depends on the product format:<br/><br/>• <strong>14-pin Butterfly packages (SLED, DFB, SOA):</strong> Include an integrated TEC element within the package for active temperature stabilisation — external TEC controller (e.g., Wavelength Electronics, Thorlabs) is required<br/>• <strong>Integrated Modules (BX9/BX10/BZ1, BF21, ASE):</strong> Include both TEC element and TEC controller — fully self-contained, no external controller required<br/>• <strong>TO-can packages:</strong> No integrated TEC<br/>• <strong>Bare chips:</strong> No TEC — thermal management is the responsibility of the system designer'},
+
+  {k:['connector type','fc apc','lc connector','fc pc','connector supported','fibre connector','optical connector'],
+   a:'DenseLight products support the following fibre connector options:<br/><br/>• <strong>FC/APC (8° angled):</strong> Standard on butterfly-packaged SLED, DFB, and SOA modules — minimises back-reflection (&lt;–65 dB return loss)<br/>• <strong>FC/PC:</strong> Available on request for some products<br/>• <strong>LC connectors:</strong> Available on integrated modules and some pigtailed products<br/>• <strong>Bare fibre pigtail:</strong> Available for custom integration<br/>• <strong>Free-space / no connector:</strong> Available for bare chip and chip-on-submount products<br/><br/>Connector type can often be specified at time of order. Contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['modulation bandwidth','modulation speed','direct modulation','small signal bandwidth','3db bandwidth modulation'],
+   a:'Modulation bandwidth depends on the product:<br/><br/>• <strong>DFB Lasers (direct modulation):</strong> Capable of multi-GHz direct modulation — CW DFB 25G products are characterised for 25 Gbps NRZ<br/>• <strong>BZ1 Integrated SLED Module:</strong> Supports CW, digital, and analogue modulation (refer to datasheet for bandwidth)<br/>• <strong>BF21 NLW Module:</strong> Supports CW and modulated operation<br/>• <strong>SLED Modules (14-pin BTF):</strong> Modulation bandwidth is limited — primarily designed for CW operation in sensing applications<br/>• <strong>SOAs:</strong> Support high-speed switching — DS-SA series achieves extinction ratio &gt;60 dB<br/><br/>For 3 dB small-signal bandwidth data: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['analog control','digital control','control interface','i2c','spi','uart','analogue control','digital interface'],
+   a:'Control interface options depend on the product format:<br/><br/>• <strong>14-pin Butterfly modules:</strong> Controlled via analogue current source (laser drive) and analogue TEC controller — no digital interface integrated<br/>• <strong>BZ1 Integrated SLED Module:</strong> Supports analogue and digital modulation inputs<br/>• <strong>BF21 NLW Module:</strong> Supports CW and modulated operation with integrated driver interface<br/>• <strong>Integrated modules generally:</strong> Accept DC power supply input; modulation input is analogue<br/><br/>For systems requiring digital control (I²C, SPI, UART), interfacing is typically implemented at the driver/controller board level by the system integrator. DenseLight can advise on recommended driver architectures: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['monitoring photodiode','back facet monitor','mpd','built in photodiode','monitor photodiode'],
+   a:'Yes — DenseLight butterfly-packaged products (SLED, DFB, SOA) typically include a <strong>back-facet monitoring photodiode (MPD)</strong> within the 14-pin butterfly package. The MPD provides a photocurrent proportional to the optical output power, enabling:<br/><br/>• Automatic Power Control (APC) feedback loops<br/>• Output power monitoring and diagnostics<br/>• Ageing compensation over product lifetime<br/><br/>The MPD responsivity and its relationship to front-facet output power are specified in the product datasheet. Contact: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['pcb integration','pcb guidelines','pcb layout','board integration','pcb design','circuit board integration'],
+   a:'DenseLight recommends the following PCB integration guidelines for butterfly-packaged products:<br/><br/>• <strong>TEC controller:</strong> Place the TEC controller IC close to the module to minimise thermal resistance in the feedback loop<br/>• <strong>Low-noise current source:</strong> Use a low-noise, high-stability laser driver (e.g., Wavelength Electronics, iC-Haus) to minimise RIN injection<br/>• <strong>Ground plane:</strong> Ensure a solid, continuous ground plane beneath the module footprint for thermal and EMI management<br/>• <strong>Decoupling:</strong> Place bulk and high-frequency decoupling capacitors close to driver supply pins<br/>• <strong>ESD protection:</strong> Include TVS or Schottky diode protection on driver input lines<br/><br/>For a detailed integration application note: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['evaluation board','eval board','demo board','evaluation kit','starter kit','development board'],
+   a:'DenseLight can provide <strong>evaluation and demonstration support</strong> for its products. Depending on the product, this may include:<br/><br/>• Reference driver circuit schematics and BOM recommendations<br/>• Application notes for bench characterisation<br/>• Engineering samples for evaluation in your own test setup<br/><br/>Dedicated evaluation boards are not offered as standard catalogue items for all products. For current evaluation support options for a specific product: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['driver circuitry','driver recommendation','laser driver','recommended driver','driver circuit','current source recommendation'],
+   a:'DenseLight recommends the following third-party laser driver and TEC controller solutions for use with butterfly-packaged products:<br/><br/><strong>Laser Current Drivers:</strong><br/>• Wavelength Electronics (LDTC, WLD series)<br/>• iC-Haus iC-WJ / iC-WK series<br/>• Thorlabs LDC series (benchtop)<br/><br/><strong>TEC Controllers:</strong><br/>• Wavelength Electronics (MPT, PTC series)<br/>• Meerstetter TEC controllers<br/>• Thorlabs TED series (benchtop)<br/><br/>For integrated modules (BX/BZ/BF21), no external driver is required. For driver selection guidance specific to your product: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── RESEARCH & R&D ── */
+  {k:['silicon photonics integration','sip integration','silicon photonics','siph','pic integration silicon'],
+   a:'Yes — DenseLight is actively involved in <strong>silicon photonics (SiP) integration</strong>:<br/><br/>• <strong>HybridXwave</strong> is DenseLight\'s proprietary 3D photonic integration platform for coupling III-V gain elements (DFB lasers, SOAs, gain chips) with silicon photonic waveguide circuits<br/>• <strong>"Twinning"</strong> — DenseLight\'s CW DFB 25G lasers are characterised and matched with SOA/Gain Chip pairs for seamless SiP PIC integration<br/>• <strong>Gain Chips</strong> are designed with near-circular far-field profiles for high-efficiency coupling to SiP platforms<br/><br/>🌐 <a href="https://www.denselight.com/our_application/sip-solutions-for-sensing-communications/" target="_blank" style="color:var(--acc)">SiP Solutions →</a>'},
+
+  {k:['hybrid photonic integration','hybrid integration','iii-v silicon hybrid','heterogeneous integration','hybrid pic'],
+   a:'Yes — DenseLight supports <strong>hybrid photonic integration</strong> through its <strong>HybridXwave</strong> and <strong>HOSA (Hybrid Optical Sub-Assembly)</strong> platforms:<br/><br/>• III-V gain elements (DFB, SOA, gain chip) are co-packaged with silicon photonic or planar lightwave circuit (PLC) substrates<br/>• Enables compact, high-performance PICs that combine the gain of InP with the passive routing of silicon<br/>• Applicable to coherent transceivers, LiDAR engines, and advanced sensing modules<br/><br/>For hybrid integration collaboration enquiries: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['custom chip design','chip design collaboration','custom laser design','collaborate chip','co-design chip'],
+   a:'Yes — DenseLight offers <strong>custom chip design collaboration</strong> for qualified partners:<br/><br/>• In-house InP/InGaAsP chip design capability covering DFB, SLED, SOA, gain chip, and PIC device structures<br/>• Custom wavelength, facet coating, ridge geometry, and grating design<br/>• From concept to prototype to production within DenseLight\'s own cleanroom<br/>• NDA and joint development agreement (JDA) available before technical discussions<br/><br/>To initiate a custom chip design discussion: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['epitaxial wafer','epi wafer','wafer service','epitaxial growth','epi service','epitaxial layer'],
+   a:'DenseLight operates its own <strong>InP/InGaAsP epitaxial growth and wafer fabrication facility</strong> in Singapore for internal production. Enquiries regarding epitaxial wafer supply or foundry epi-growth services for external customers are handled on a case-by-case basis.<br/><br/>To discuss epitaxial wafer service availability: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['bare die','bare chip purchase','buy bare die','chip on submount','cos','die purchase'],
+   a:'Yes — DenseLight offers <strong>bare chip (die) and chip-on-submount (CoS)</strong> options for several product families:<br/><br/>• <strong>DFB Laser bare chip:</strong> Available for PIC integration and custom packaging<br/>• <strong>FP Laser bare chip:</strong> Available for SOA seeding and custom assembly<br/>• <strong>SOA chip-on-submount:</strong> Available through HOSA/HybridXwave platform<br/>• <strong>Gain Chip (bare):</strong> Standard offering for ECTL/ITLA assembly<br/><br/>Bare chip supply typically requires an NDA and qualification review. To enquire: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['mpw','multi project wafer','mpw run','shared wafer run','multiproject wafer'],
+   a:'DenseLight does not currently advertise public <strong>Multi-Project Wafer (MPW) runs</strong> as a standard service offering. DenseLight\'s wafer fabrication is primarily dedicated to its own product portfolio.<br/><br/>For research institutions or fabless companies seeking InP-based MPW access, DenseLight recommends exploring dedicated III-V foundry MPW programmes (e.g., JePPIX, Smart Photonics). However, for enquiries regarding custom wafer fabrication or collaborative projects with DenseLight: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['simulation tools','lumerical','comsol','fdtd','mode solutions','simulation support','photonic simulation'],
+   a:'DenseLight\'s internal design flow uses industry-standard photonic simulation tools. While DenseLight does not publish its specific simulation toolchain, common tools used in III-V photonic device design include Lumerical (FDTD, MODE), COMSOL Multiphysics, and proprietary in-house models.<br/><br/>For customers undertaking system-level simulations who require device parameters (e.g., S-parameters, near-field profiles, L–I curves) to use in Lumerical or COMSOL models, DenseLight can provide characterisation data under NDA: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['co-develop ip','co-develop intellectual property','ip co-development','joint ip','shared ip'],
+   a:'Yes — DenseLight is open to <strong>IP co-development arrangements</strong> with strategic partners. These are governed by Joint Development Agreements (JDAs) that define IP ownership, licensing rights, and confidentiality obligations upfront.<br/><br/>DenseLight\'s 65+ existing patents demonstrate its depth of photonic IP. Co-development partnerships are considered for applications aligned with DenseLight\'s core competencies in III-V photonics, sensing, LiDAR, and photonic integration.<br/><br/>To initiate an IP co-development discussion: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['joint development agreement','jda','jdp agreement','joint development program agreement'],
+   a:'Yes — DenseLight is willing to execute <strong>Joint Development Agreements (JDAs)</strong> before engaging in confidential technical collaborations. A JDA typically covers:<br/><br/>• Scope of joint work and deliverables<br/>• IP ownership and licensing rights for foreground and background IP<br/>• Confidentiality and exclusivity terms<br/>• Commercial rights arising from the collaboration<br/><br/>To initiate a JDA discussion: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> or 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['government funded','government project','a*star','innovate uk','horizon','eu project','government grant','research grant','funded project'],
+   a:'DenseLight, as a Singapore-based technology company, participates in government-supported R&D initiatives through agencies such as <strong>A*STAR (Agency for Science, Technology and Research)</strong> and other national innovation programmes. DenseLight\'s deep R&D capabilities — 65+ patents, in-house wafer fab, and 25+ years of photonics expertise — make it a strong collaborative partner for government-funded photonics projects.<br/><br/>For enquiries regarding collaborative R&D project participation: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  /* ── SUPPLY CHAIN & RISK ── */
+  {k:['wafer fabrication location','where fabricated','where manufactured','fab location','manufacturing location'],
+   a:'All of DenseLight\'s wafer fabrication and device manufacturing is carried out <strong>in-house at DenseLight\'s Singapore facility</strong> — 6 Changi North Street 2, Singapore. The 15,000 ft² Class 100/1000 cleanroom covers the full production flow from InP/InGaAsP wafer processing through chip fabrication, packaging, and final test. This vertical integration provides complete supply chain control and quality oversight.'},
+
+  {k:['dual source','second source','dual sourcing','alternative supplier','backup supplier','second source manufacturing'],
+   a:'DenseLight is a <strong>vertically integrated manufacturer</strong> with its own wafer fabrication, chip processing, and packaging facilities. As a primary source, DenseLight does not currently operate a dual-site manufacturing model.<br/><br/>For customers with dual-source requirements as part of their supply continuity strategy, DenseLight recommends discussing long-term supply agreements with safety stock provisions. Contact the sales team to explore options: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['supply continuity','supply plan','business continuity','supply chain resilience','supply risk'],
+   a:'DenseLight\'s supply continuity approach includes:<br/><br/>• <strong>Vertical integration:</strong> In-house wafer fab, chip processing, and packaging — reducing dependency on external suppliers for core processes<br/>• <strong>Long-term supply agreements (LTAs):</strong> Available for customers requiring scheduled delivery commitments<br/>• <strong>Safety stock programmes:</strong> Can be arranged for high-volume or critical customers<br/>• <strong>Product lifecycle management:</strong> PCN (Product Change Notifications) issued for any planned changes<br/><br/>For a supply continuity discussion tailored to your procurement needs: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['safety stock','buffer stock','consignment stock','stocking programme','safety inventory'],
+   a:'Yes — DenseLight can arrange <strong>safety stock and consignment inventory programmes</strong> for customers with critical supply requirements. This is typically structured through a Long-Term Supply Agreement (LTA) and involves:<br/><br/>• Agreed minimum stock levels held at DenseLight\'s Singapore facility<br/>• Regular replenishment schedules<br/>• Priority allocation during high-demand periods<br/><br/>To discuss a safety stock arrangement: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['obsolete product','product obsolescence','end of life','eol product','discontinued product','obsolescence management'],
+   a:'DenseLight takes a proactive approach to product lifecycle management:<br/><br/>• <strong>PCN (Product Change Notifications)</strong> are issued with advance notice before any changes to product specifications, materials, or processes<br/>• <strong>PDN (Product Discontinuation Notices)</strong> are issued well in advance of any product end-of-life decision, providing customers time to qualify alternatives or place last-time-buy orders<br/>• DenseLight works with affected customers to identify suitable replacement products or to arrange last-time-buy inventory<br/><br/>For lifecycle status enquiries on a specific product: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['pcn','product change notification','change notification','material change notification','process change'],
+   a:'Yes — DenseLight issues <strong>PCN (Product Change Notifications)</strong> to customers for any planned changes to:<br/><br/>• Materials, epitaxial structure, or die design<br/>• Packaging or connector configuration<br/>• Manufacturing process or test methodology<br/>• Supplier changes for key sub-components<br/><br/>PCNs are issued with adequate advance notice to allow customers to qualify the change. To register for PCN notifications for specific products: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['traceability','lot traceability','batch traceability','product traceability','serial number traceability'],
+   a:'DenseLight maintains full <strong>lot and batch traceability</strong> through its manufacturing system:<br/><br/>• Each product carries a unique serial number or date/lot code<br/>• Traceability covers wafer lot, chip fabrication batch, packaging run, and final test data<br/>• This enables rapid root cause analysis in the event of a field return or quality concern<br/><br/>For traceability documentation on a specific order or serial number: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['esg','esg compliance','environmental social governance','sustainability','carbon footprint','green manufacturing'],
+   a:'DenseLight is committed to responsible and sustainable manufacturing practices. As a Singapore-based company, DenseLight operates within the framework of Singapore\'s environmental regulations and industry best practices. RoHS and REACH compliance is maintained across the product range.<br/><br/>For detailed ESG policy documentation or sustainability enquiries: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['conflict minerals','3tg','tantalum tin tungsten gold','dodd-frank','conflict mineral policy'],
+   a:'DenseLight is committed to responsible sourcing. As part of its supply chain compliance:<br/><br/>• DenseLight monitors its supply chain for the use of conflict minerals (3TG: tantalum, tin, tungsten, gold) in accordance with applicable regulations<br/>• DenseLight\'s primary semiconductor materials (InP, InGaAsP, InGaAs) are not classified as conflict minerals<br/>• Gold is used in wire bonding within some packaged products — DenseLight sources from qualified suppliers who adhere to responsible sourcing policies<br/><br/>For a Conflict Minerals Reporting Template (CMRT) or supply chain due diligence documentation: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['long term lifecycle','lifecycle guarantee','5 year guarantee','10 year supply','product lifecycle guarantee','supply guarantee'],
+   a:'DenseLight supports customers with long-term supply continuity through <strong>Long-Term Supply Agreements (LTAs)</strong>, which can include:<br/><br/>• Multi-year pricing and delivery commitments<br/>• Safety stock arrangements and priority production allocation<br/>• Advance PDN (Product Discontinuation Notice) commitments<br/>• Last-time-buy provisions<br/><br/>Formal long-term lifecycle guarantees (5–10 years) are available for discussion under an LTA framework. Contact the sales team to negotiate terms: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── BUSINESS STRATEGY & COMPETITIVE ── */
+  {k:['differentiate','how do you differentiate','competitive advantage','what makes denselight different','why choose denselight','denselight vs competitors'],
+   a:'DenseLight differentiates itself through several key strengths:<br/><br/>• <strong>Vertical integration:</strong> In-house wafer fab (Class 100/1000 cleanroom) through to final tested modules — full quality control from chip to product<br/>• <strong>25+ years of III-V photonics expertise</strong> and 65+ patents in photonic ICs and devices<br/>• <strong>Broad portfolio:</strong> SLEDs, DFB lasers, NLW lasers, SOAs, gain chips, ELEDs, FP lasers, and integrated modules — all from a single source<br/>• <strong>Custom &amp; OEM capability:</strong> Genuine in-house custom chip design and packaging<br/>• <strong>Telcordia GR-468-CORE qualification</strong> — field-proven reliability<br/>• Serving customers in <strong>40+ countries</strong> across sensing, medical, LiDAR, datacom, and defence<br/><br/>🌐 <a href="https://www.denselight.com/about-us/" target="_blank" style="color:var(--acc)">Learn more →</a>'},
+
+  {k:['core technology advantage','technology advantage','core competency','technology differentiation','key technology'],
+   a:'DenseLight\'s core technology advantages lie in:<br/><br/>• <strong>InP/InGaAsP III-V epitaxy and device design:</strong> Proprietary processes for SLED, DFB, SOA, NLW, and gain chip fabrication<br/>• <strong>Narrow Linewidth Laser technology:</strong> Proprietary NLW architecture achieving &lt;10 kHz linewidth with &gt;10 km coherence — enabling long-range Doppler LiDAR<br/>• <strong>HybridXwave 3D photonic integration:</strong> Advanced co-packaging of III-V gain elements with silicon photonic circuits<br/>• <strong>SLED broadband design:</strong> True superluminescent mode operation with broad bandwidth and Telcordia-qualified reliability<br/>• <strong>65+ patents</strong> protecting these innovations'},
+
+  {k:['compete with us companies','compete with european','competitors','who are competitors','denselight competitors','laser competitors'],
+   a:'DenseLight competes in the global III-V photonics components market alongside companies in the US, Europe, and Asia. Specific competitor comparisons are not something DenseLight comments on directly. However, DenseLight differentiates through its combination of vertical integration, broad product portfolio, custom capability, and its proven track record serving customers in 40+ countries across multiple application domains.<br/><br/>For a technical comparison of DenseLight\'s products versus your current supplier: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['expanding markets','growth markets','new markets','market expansion','future markets','strategic direction'],
+   a:'DenseLight is actively expanding into several high-growth photonics markets:<br/><br/>• <strong>LiDAR (Wind &amp; Automotive):</strong> Growing demand for NLW lasers in FMCW LiDAR for autonomous vehicles and offshore wind<br/>• <strong>Silicon Photonics:</strong> HybridXwave integration enabling next-generation data centre and coherent transceiver PICs<br/>• <strong>Distributed Sensing (DAS/DTS):</strong> Infrastructure monitoring, oil &amp; gas, and smart city applications<br/>• <strong>5G / 6G Fronthaul:</strong> High-bandwidth optical interconnects for next-generation wireless infrastructure<br/>• <strong>Quantum Technologies:</strong> Photonic components for emerging quantum sensing and communication platforms'},
+
+  {k:['publicly listed','stock exchange','listed company','ipo','public company','denselight stock'],
+   a:'DenseLight Semiconductors Pte. Ltd. is a <strong>privately held company</strong> incorporated in Singapore. It is not currently listed on any public stock exchange. For corporate and investor enquiries: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['annual production capacity','production capacity','manufacturing capacity','units per year','output capacity'],
+   a:'DenseLight\'s annual production capacity is not publicly disclosed. DenseLight operates a 15,000 ft² Class 100/1000 cleanroom in Singapore capable of supporting volume production across its full product portfolio.<br/><br/>For questions regarding capacity availability for a specific product and volume: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+
+  {k:['technology licensing','license technology','ip licensing','patent licensing','technology transfer'],
+   a:'DenseLight\'s technology licensing arrangements are handled on a case-by-case basis. Given DenseLight\'s portfolio of 65+ patents in photonic ICs and devices, licensing discussions are considered for applications that are complementary to DenseLight\'s commercial activities.<br/><br/>For technology licensing and IP enquiries: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['what patents do you hold','list of patents','patent portfolio','patents held','patent list'],
+   a:'DenseLight holds <strong>65+ patents</strong> covering photonic integrated circuits, SLED and broadband source design, narrow linewidth laser architectures, SOA design and packaging, and advanced photonic integration platforms (HybridXwave).<br/><br/>A full patent list is not publicly published. For IP portfolio enquiries or licensing discussions: 📧 <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a>'},
+
+  {k:['major customers','key customers','customer list','who are your customers','notable customers'],
+   a:'DenseLight serves customers across <strong>40+ countries</strong> in industries including sensing, medical imaging, LiDAR, datacom, telecom, industrial gas sensing, and defence. Due to commercial confidentiality, DenseLight does not publicly disclose its customer list.<br/><br/>For reference customers or application-specific case studies relevant to your industry: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  {k:['case study','application case study','success story','customer case study','reference case','application example'],
+   a:'DenseLight has supported customers across a wide range of demanding photonics applications. Application-specific case studies and reference examples are available for discussion under NDA where commercial sensitivities apply.<br/><br/>Application notes and use-case documentation for specific product families are available at:<br/>🌐 <a href="https://www.denselight.com/resources/" target="_blank" style="color:var(--acc)">denselight.com/resources</a><br/><br/>For industry-specific case studies: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>'},
+
+  /* ── CHATBOT-SPECIFIC VISITOR QUESTIONS ── */
+  {k:['talk to human','speak to human','human engineer','talk to engineer','connect to person','speak to a person','real person','live agent'],
+   a:'Absolutely — you can speak directly with a DenseLight engineer or sales representative at any time:<br/><br/>📧 <strong>Sales &amp; Technical:</strong> <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📧 <strong>General Enquiries:</strong> <a href="mailto:info@denselight.com" style="color:var(--acc)">info@denselight.com</a><br/>📞 <strong>Sales Phone:</strong> +65 6415 7989<br/>📞 <strong>Corporate:</strong> +65 6415 4422<br/>🌐 <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">Online contact form →</a><br/><br/>For the fastest response, please briefly describe your application and the product(s) of interest when reaching out.',
+   chips:['Request a quote','Schedule a call','Browse products']},
+
+  {k:['send to email','email me','send information email','send details email','email this to me','send summary email'],
+   a:'This assistant is not able to send emails directly on your behalf. However, you can easily share information with your team:<br/><br/>• Use the <strong>"Request a Quote"</strong>, <strong>"Request Datasheet"</strong>, or <strong>"Request a Sample"</strong> buttons after selecting a product — these generate a pre-filled email ready to send to DenseLight\'s sales team<br/>• Copy and paste any response from this chat into your own email<br/>• Visit <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">denselight.com/contact-us</a> and submit the online form — DenseLight will respond directly to your email address',
+   chips:['Browse products','Contact sales']},
+
+  {k:['upload requirements','upload file','upload technical spec','upload document','share file','attach file'],
+   a:'This chat assistant does not currently support file uploads. To share your technical requirements directly with DenseLight\'s team, please:<br/><br/>• Email your specification document to 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>• Or complete the contact form at 🌐 <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">denselight.com/contact-us</a> and attach your requirements<br/><br/>DenseLight\'s applications engineers will review your specifications and respond with the most appropriate product recommendation.'},
+
+  {k:['compare two products','compare products','product comparison','which product is better','product vs product','compare sled soa'],
+   a:'I would be happy to assist you compare DenseLight products. Please tell me which two products you would like to compare and I will outline the key differences.<br/><br/>For example, you can ask:<br/>• <em>"Compare SLED Modules and ELED Modules"</em><br/>• <em>"What is the difference between the NLW Wind LiDAR and NLW Automotive LiDAR laser?"</em><br/>• <em>"DFB vs Narrow Linewidth Laser — what is the difference?"</em><br/><br/>Alternatively, DenseLight\'s sales engineers can provide a detailed comparison tailored to your specific application: 📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a>',
+   chips:['SLED vs ELED','DFB vs NLW Laser','Browse by industry']},
+
+  {k:['product selector','product selection tool','selector tool','product finder','which product for me','find the right product'],
+   a:'This assistant serves as DenseLight\'s interactive product selector. To find the right product for your application:<br/><br/>1️⃣ Click <strong>"Browse by Industry"</strong> to filter products by your application area<br/>2️⃣ Select your industry to see recommended products<br/>3️⃣ Tap any product to view full specifications<br/>4️⃣ Use the action buttons to request a quote, datasheet, or sample<br/><br/>Alternatively, type a description of your application (e.g., "I need a laser for methane gas detection") and I will suggest the most suitable product.',
+   chips:['Browse by industry','What products do you offer?']},
+
+  {k:['quick quote','quick estimate','rough price','price estimate','indicative quote','ballpark price'],
+   a:'Formal pricing requires a consultation with DenseLight\'s sales team, as it depends on the specific product configuration, quantity, and delivery requirements.<br/><br/>To receive a quote as quickly as possible:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> — provide the product name, quantity, and your application<br/>📞 +65 6415 7989 — for an immediate phone discussion<br/><br/>💡 Alternatively, browse to your product of interest above and use the <strong>"Request a Quote / Purchase"</strong> button to generate a pre-filled enquiry email.',
+   chips:['Browse products to request a quote','Contact sales']},
+
+  {k:['schedule teams call','zoom call','schedule a call','book a call','video call','arrange meeting','teams meeting','zoom meeting'],
+   a:'DenseLight\'s sales and applications engineering team is available for <strong>Teams, Zoom, or telephone calls</strong> at your convenience. To schedule a call:<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> — mention your preferred platform, time zone, and availability<br/>📞 +65 6415 7989 — to arrange directly by phone<br/><br/>Please include a brief description of your application and the product(s) of interest so we can ensure the right engineer joins the call.'},
+
+  {k:['local sales representative','local rep','sales rep near me','regional representative','sales agent','local agent','distributor near me'],
+   a:'DenseLight operates through a <strong>global network of sales representatives and distributors</strong>. To find the representative closest to your region:<br/><br/>🌐 <a href="https://www.denselight.com/find-a-partner/" target="_blank" style="color:var(--acc)">denselight.com/find-a-partner</a><br/><br/>You can also contact the Singapore headquarters directly and they will connect you with the appropriate regional contact:<br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989'},
+
+  {k:['fastest way','quickest way','fastest response','urgent query','urgent enquiry','how to get fast answer','quick technical answer'],
+   a:'For the fastest technical response from DenseLight:<br/><br/>📞 <strong>Call directly:</strong> +65 6415 7989 (Sales) — for immediate assistance during Singapore business hours<br/>📧 <strong>Email sales:</strong> <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> — responses typically within one business day<br/><br/>When contacting, please specify:<br/>• The product or product category of interest<br/>• Your application and key technical requirements<br/>• Your timeline and quantity (if known)<br/><br/>This ensures DenseLight\'s engineers can provide a precise and actionable response immediately.'},
+
+  {k:['email transcript','email conversation','send transcript','email chat','send chat history','email this chat','save conversation'],
+   a:'To email yourself this conversation, click the <strong>"Email me this conversation"</strong> button at the bottom of the chat window — it will open your email client with the full transcript pre-filled, ready to send to yourself or forward to a colleague.<br/><br/>Alternatively, you can use the <strong>Request a Quote / Sample / Datasheet</strong> buttons on any product to generate a pre-filled email to DenseLight\'s sales team.',
+   chips:['Browse products','Request a quote','Contact sales']},
+
+  {k:['download pdf','download all','save as pdf','export pdf','print pdf','download information','pdf of products'],
+   a:'This chat assistant does not currently support direct PDF export. However, you can access downloadable product information through the following channels:<br/><br/>🌐 <strong>Product datasheets &amp; brochures:</strong> <a href="https://www.denselight.com/resources/" target="_blank" style="color:var(--acc)">denselight.com/resources</a><br/>🌐 <strong>Individual product pages:</strong> Each product page at <a href="https://www.denselight.com/products/" target="_blank" style="color:var(--acc)">denselight.com/products</a> contains downloadable specifications<br/>📧 <strong>Request datasheets:</strong> <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a> — DenseLight will send the relevant PDFs directly to you<br/><br/>💡 You can also use your browser\'s print function (Ctrl+P / Cmd+P) to save this chat as a PDF.'},
+
+];
+
+/* ─── ADVANCED FUZZY MATCHER ─────────────────────────────────────
+   Three-stage pipeline:
+   1. Token overlap   — stem + normalise both sides, score token hits
+   2. Substring match — keyword found anywhere in query (length-weighted)
+   3. Edit-distance   — fuzzy match individual tokens vs keywords (typo tolerance)
+   Final score = weighted combination; best entry wins.
+──────────────────────────────────────────────────────────────── */
+
+/* Synonym / abbreviation map — expands query before matching */
+var SYNONYMS = {
+  'laser diode':'dfb laser','ld':'dfb laser',
+  'sled':'superluminescent','superluminescent led':'sled',
+  'soa':'semiconductor optical amplifier','optical amp':'soa',
+  'tec':'thermoelectric','tec controller':'thermoelectric cooling',
+  'butterfly':'14-pin butterfly','btf':'butterfly',
+  'linewidth':'linewidth','line width':'linewidth',
+  'nlw':'narrow linewidth','nll':'narrow linewidth',
+  'fog':'fiber optic gyroscope','fog sensor':'fiber optic gyroscope',
+  'das':'distributed acoustic sensing',
+  'shm':'structural health monitoring',
+  'oct':'optical coherence tomography',
+  'dfb':'distributed feedback laser',
+  'fp laser':'fabry-perot','fabry perot':'fabry-perot',
+  'eled':'edge emitting led',
+  'ase':'amplified spontaneous emission',
+  'gain chip':'gain chip itla','itla':'gain chip',
+  'smsr':'side mode suppression ratio',
+  'fwhm':'spectral bandwidth',
+  'per':'polarization extinction ratio',
+  'osnr':'optical signal to noise ratio',
+  'orl':'back reflection tolerance',
+  'htol':'accelerated aging','htol test':'accelerated aging',
+  'fit rate':'failure in time','fit':'failure in time',
+  'mttf':'mean time to failure','mtbf':'mean time to failure',
+  'pcn':'product change notification',
+  'pdn':'product discontinuation',
+  'lta':'long term supply','long term agreement':'long term supply',
+  'mpw':'multi project wafer',
+  'jda':'joint development agreement','jdp':'joint development agreement',
+  'esd':'electrostatic discharge',
+  'rohs':'rohs compliance',
+  'moq':'minimum order quantity','minimum order':'minimum order quantity',
+  'rma':'return policy',
+  'sip':'silicon photonics','siph':'silicon photonics',
+  'pic':'photonic integrated circuit',
+  'lidar':'lidar','li-dar':'lidar',
+  'adas':'autonomous vehicle lidar','self driving':'autonomous vehicle lidar',
+  '5g':'5g fronthaul','5g laser':'5g fronthaul',
+  'data centre':'data center','datacentre':'data center',
+  'price':'pricing','cost':'pricing','how much':'pricing',
+  'quote':'request quote','quotation':'request quote',
+  'sample':'engineering sample','eval unit':'engineering sample',
+  'datasheet':'datasheet','spec sheet':'datasheet',
+  'warranty':'product warranty',
+  'contact':'how to contact','reach out':'how to contact',
+  'phone':'phone number','telephone':'phone number',
+  'email':'sales email','email address':'sales email',
+  'location':'where is denselight','address':'where is denselight',
+  'careers':'career','jobs':'career','vacancy':'career',
+  'hr':'career','recruitment':'career',
+  'distributor':'find a partner','reseller':'find a partner',
+  'partner':'find a partner','rep':'find a partner',
+  'custom':'custom design','bespoke':'custom design','tailored':'custom design',
+  'oem':'oem contract','private label':'oem contract',
+  'singapore':'singapore office contact',
+  'cleanroom':'cleanroom','class 100':'cleanroom',
+  'certification':'compliance documents','certified':'compliance documents',
+  'iso':'iso certification',
+  'telcordia':'telcordia',
+  'conflict mineral':'conflict minerals','3tg':'conflict minerals',
+  'esg':'esg compliance','sustainability':'esg compliance',
+  'rad hard':'radiation hardened','radiation':'radiation hardened',
+  'mil spec':'mil-std','milspec':'mil-std','military':'mil-std',
+  'offshore':'offshore oil','subsea':'offshore oil',
+  'vibration':'vibration testing','shock':'vibration testing',
+  'humidity':'humidity tolerance','moisture':'humidity tolerance',
+  'storage':'storage temperature','shelf life':'storage temperature',
+  'twinning':'silicon photonics integration',
+  'hybridxwave':'hybrid photonic integration',
+  'hosa':'hybrid photonic integration',
+  'bare die':'bare die','bare chip':'bare die',
+  'wafer':'epitaxial wafer','epi':'epitaxial wafer',
+  'simulation':'simulation tools','lumerical':'simulation tools','comsol':'simulation tools',
+  'ip':'co-develop ip','patent':'co-develop ip',
+  'government grant':'government funded','a*star':'government funded',
+  'traceability':'traceability','lot number':'traceability',
+  'safety stock':'safety stock','buffer stock':'safety stock',
+  'obsolete':'obsolete product','end of life':'obsolete product',
+  'lead time':'lead time','delivery time':'lead time',
+  'shipping':'shipping','incoterms':'incoterms',
+  'payment':'payment terms','invoice':'payment terms',
+  'nda':'nda','non disclosure':'nda',
+  'volume':'volume discount','bulk':'volume discount',
+  'stock':'stock availability','availability':'stock availability',
+  'technical support':'technical support','troubleshoot':'technical support',
+  'case study':'case study','reference':'case study',
+  'customer list':'major customers','who uses':'major customers',
+  'listed company':'publicly listed','ipo':'publicly listed','stock exchange':'publicly listed',
+  'production capacity':'annual production capacity',
+  'technology license':'technology licensing',
+  'differentiate':'differentiate','why choose':'differentiate',
+  'compare products':'compare two products',
+  'product selector':'product selector','which product':'product selector',
+  'quick quote':'quick quote','price estimate':'quick quote',
+  'zoom':'schedule teams call','teams call':'schedule teams call',
+  'local rep':'local sales representative','local agent':'local sales representative',
+  'fastest':'fastest way','urgent':'fastest way',
+  'download':'download pdf','pdf':'download pdf',
+  'human':'talk to human','real person':'talk to human','live chat':'talk to human',
+  'send email':'send to email','email me':'send to email',
+  'upload':'upload requirements','attach':'upload requirements',
+  'transcript':'email transcript','email conversation':'email transcript',
+};
+
+/* Stem: strip common English suffixes for better token matching */
+function stem(w){
+  w=w.toLowerCase();
+  var sfx=['ation','ations','ings','ing','tion','tions','ness','ment','ments',
+           'ity','ies','ers','ed','es','er','ly','al','ical','ble','ous','ive'];
+  for(var i=0;i<sfx.length;i++){
+    if(w.length>sfx[i].length+3&&w.slice(-sfx[i].length)===sfx[i]){
+      return w.slice(0,w.length-sfx[i].length);
+    }
+  }
+  return w;
+}
+
+/* Tokenise a string into stemmed non-stopword tokens */
+var STOP_ARR=['a','an','the','is','are','was','were','be','been','being',
+  'have','has','had','do','does','did','will','would','could','should','may',
+  'might','shall','can','need','dare','ought','used','to','of','in','on','at',
+  'by','for','with','about','against','between','into','through','during',
+  'before','after','above','below','from','up','down','and','but','or','nor',
+  'so','yet','both','either','neither','not','no','very','just','also','as',
+  'if','while','although','because','since','unless','until','i','you','he',
+  'she','it','we','they','me','him','her','us','them','my','your','his','its',
+  'our','their','this','that','these','those','what','which','who','how','when',
+  'where','why','there','here','than','then','its','your','our'];
+var STOP={};
+for(var _si=0;_si<STOP_ARR.length;_si++){STOP[STOP_ARR[_si]]=1;}
+
+function tokenise(str){
+  return str.toLowerCase()
+    .replace(/[^a-z0-9\s\-]/g,'')
+    .split(/[\s\-\/]+/)
+    .filter(function(t){ return t.length>1 && !STOP[t]; })
+    .map(stem);
+}
+
+/* Levenshtein distance (capped for performance) */
+function editDist(a,b){
+  if(Math.abs(a.length-b.length)>3) return 99;
+  var m=a.length, n=b.length;
+  var dp=[];
+  for(var i=0;i<=m;i++){ dp[i]=[i]; }
+  for(var j=0;j<=n;j++){ dp[0][j]=j; }
+  for(var i=1;i<=m;i++){
+    for(var j=1;j<=n;j++){
+      dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/* Expand query with synonyms before matching */
+function expandQuery(q){
+  var expanded=q.toLowerCase();
+  for(var _k in SYNONYMS){
+    if(Object.prototype.hasOwnProperty.call(SYNONYMS,_k)&&expanded.indexOf(_k)!==-1){
+      expanded=expanded+' '+SYNONYMS[_k];
+    }
+  }
+  return expanded;
+}
+
+/* Main scorer */
+function findBestMatch(input){
+  var raw=input.toLowerCase().trim();
+  var expanded=expandQuery(raw);
+  var qTokens=tokenise(expanded);
+
+  var bestScore=0, bestEntry=null;
+
+  for(var i=0;i<FAQ_KB.length;i++){
+    var entry=FAQ_KB[i];
+    var score=0;
+
+    for(var j=0;j<entry.k.length;j++){
+      var kw=entry.k[j];
+
+      /* Stage 1: exact substring match (original scorer, high weight) */
+      if(expanded.indexOf(kw)!==-1){
+        var boost=(expanded===kw||raw===kw)?2:1;
+        score+=kw.length*2.5*boost;
+        continue; /* already scored, skip fuzzy for this kw */
+      }
+
+      /* Stage 2: token overlap (stemmed) */
+      var kwTokens=tokenise(kw);
+      var hits=0;
+      for(var a=0;a<qTokens.length;a++){
+        for(var b=0;b<kwTokens.length;b++){
+          if(qTokens[a]===kwTokens[b]){
+            hits++;
+          } else if(qTokens[a].length>3&&kwTokens[b].length>3&&editDist(qTokens[a],kwTokens[b])<=1){
+            hits+=0.7; /* typo-tolerant partial credit */
+          }
+        }
+      }
+      if(hits>0){
+        /* Score proportional to fraction of kw tokens matched */
+        var coverage=hits/Math.max(kwTokens.length,1);
+        score+=coverage*kw.length*1.8;
+      }
+    }
+
+    if(entry.score_weight) score*=entry.score_weight;
+    if(score>bestScore){ bestScore=score; bestEntry=entry; }
+  }
+
+  /* Require a minimum confidence threshold */
+  return bestScore>=3?bestEntry:null;
+}
+
+function handleFreeText(txt){
+  var entry=findBestMatch(txt);
+  if(entry){
+    say(entry.a,550).then(function(){
+      if(entry.chips&&entry.chips.length){
+        addChips(entry.chips,function(c){ handleFreeText(c); });
+      }
+    });
+    return;
+  }
+  say('This specific query is best directed to the DenseLight team, who will be happy to assist.<br/><br/>📧 <a href="mailto:sales@denselight.com" style="color:var(--acc)">sales@denselight.com</a><br/>📞 +65 6415 7989<br/>🌐 <a href="https://www.denselight.com/contact-us/" target="_blank" style="color:var(--acc)">Contact form →</a>',700);
+}
+
+/* ═══════════════════════════════════════════════════════
+   FLOW
+═══════════════════════════════════════════════════════ */
+async function init(){
+  S={name:'',company:'',email:'',phone:'',industry:null,product:null,freeChat:false,awaitText:false,textFor:null};
+  msgsEl.innerHTML='';
+  disableInput();
+  setStep('welcome');
+  await say('👋 <strong>Welcome to DenseLight Semiconductors!</strong><br/><br/>We specialise in high-performance photonic devices — SLEDs, DFB Lasers, SOAs, Narrow Linewidth Lasers and more — serving <strong>40+ countries</strong> worldwide.<br/><br/>To get started, please share a few quick details below so we can serve you better.', 900);
+  await wait(200);
+  showDetailsForm();
+}
+
+function showDetailsForm(){
+  setStep('details');
+  var form=el('div','detail-form');
+  var dh=el('div','df-head');
+  dh.appendChild(el('div','df-title','Tell us a bit about yourself'));
+  dh.appendChild(el('div','df-sub','This helps us personalise your experience and send accurate quotes.'));
+  form.appendChild(dh);
+
+  var body=el('div','df-body');
+
+  function mkField(id,label,ph,type,required){
+    var f=el('div','df-field');
+    var lbl=el('label','df-label');
+    lbl.setAttribute('for',id);
+    lbl.textContent=label+(required?' *':'');
+    if(required){ var req=el('span',' '); req.textContent=''; lbl.appendChild(req); }
+    var inp=el('input','df-input');
+    inp.id=id; inp.type=type||'text'; inp.placeholder=ph;
+    f.appendChild(lbl); f.appendChild(inp);
+    return {f:f, inp:inp};
+  }
+
+  var n=mkField('df_name','Full Name','e.g. John Smith','text',true);
+  var c=mkField('df_company','Company / Organisation','e.g. Acme Technologies','text',true);
+  var e=mkField('df_email','Email Address','e.g. john@company.com','email',true);
+  var p=mkField('df_phone','Phone Number (Optional)','e.g. +1 555 0123','tel',false);
+
+  body.appendChild(n.f); body.appendChild(c.f);
+  body.appendChild(e.f); body.appendChild(p.f);
+
+  // validation note
+  var note=el('div','df-note'); note.textContent='🔒 Your details are only used to personalise responses and pre-fill enquiry emails. DenseLight does not share your information.';
+  body.appendChild(note);
+
+  var submitBtn=el('button','df-submit'); submitBtn.textContent='Continue →';
+  body.appendChild(submitBtn);
+  form.appendChild(body);
+
+  submitBtn.addEventListener('click',function(){
+    var nameVal=n.inp.value.trim();
+    var compVal=c.inp.value.trim();
+    var emailVal=e.inp.value.trim();
+    var phoneVal=p.inp.value.trim();
+    var ok=true;
+
+    // Validate name
+    if(nameVal.length<2){
+      n.inp.classList.add('err'); setTimeout(function(){ n.inp.classList.remove('err'); },500);
+      n.inp.focus(); ok=false;
+    }
+    // Validate company
+    if(compVal.length<2){
+      c.inp.classList.add('err'); setTimeout(function(){ c.inp.classList.remove('err'); },500);
+      if(ok) c.inp.focus(); ok=false;
+    }
+    // Validate email
+    if(!emailVal||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)){
+      e.inp.classList.add('err'); setTimeout(function(){ e.inp.classList.remove('err'); },500);
+      if(ok) e.inp.focus(); ok=false;
+    }
+    if(!ok) return;
+
+    S.name=nameVal; S.company=compVal;
+    S.email=emailVal; S.phone=phoneVal;
+
+    userText('Name: '+nameVal+' | Company: '+compVal);
+    doIndustry();
+  });
+
+  // Allow Enter key in last required field
+  e.inp.addEventListener('keydown',function(ev){ if(ev.key==='Enter') submitBtn.click(); });
+  p.inp.addEventListener('keydown',function(ev){ if(ev.key==='Enter') submitBtn.click(); });
+
+  botCard(form);
+  // Focus first field after render
+  setTimeout(function(){ n.inp.focus(); },300);
+}
+
+async function doIndustry(){
+  setStep('industry');
+  document.getElementById('footerActions').style.display='flex';
+  await say('Thanks, <strong>'+S.name+'</strong>! 🙌 Great to have you here from <strong>'+S.company+'</strong>.<br/><br/>Which industry best describes your application?', 600);
+  await wait(100);
+
+  var wrap=el('div','ind-wrap');
+  INDUSTRIES.forEach(function(ind){
+    var row=el('div','ind-item');
+    var ico=el('span','ind-ico'); ico.textContent=ind.ico;
+    var info=el('div');
+    info.appendChild(el('div','ind-name',ind.n));
+    info.appendChild(el('div','ind-desc',ind.d));
+    row.appendChild(ico); row.appendChild(info);
+    row.addEventListener('click',(function(i){ return function(){ doSelectIndustry(i); }; })(ind));
+    wrap.appendChild(row);
+  });
+  botCard(wrap);
+  S.freeChat=true;
+  enableInput('Or type any product / application question…');
+}
+
+async function doSelectIndustry(ind){
+  userText(ind.n); S.industry=ind; setStep('products');
+  var pids=IND_PRODS[ind.id]||IND_PRODS.all;
+  var lbl=ind.id==='all'?'our complete portfolio':'<strong>'+ind.n+'</strong>';
+  await say('Here are the recommended DenseLight products for '+lbl+'.<br/><small style="color:var(--tx3)">Tap any product to view full specifications.</small>',500);
+  await wait(100);
+
+  var wrap=el('div','prod-wrap');
+  pids.forEach(function(pid){
+    var p=PRODS[pid]; if(!p) return;
+    var row=el('div','prod-item');
+    var info=el('div','prod-info');
+    info.appendChild(el('div','prod-name',p.name));
+    info.appendChild(el('div','prod-short',p.short));
+    var tags=el('div','prod-tags');
+    p.tags.forEach(function(t){ tags.appendChild(el('span','ptag',t)); });
+    info.appendChild(tags);
+    var badge=el('span','prod-badge',p.badge);
+    row.appendChild(info); row.appendChild(badge);
+    row.addEventListener('click',(function(id){ return function(){ doSelectProduct(id); }; })(pid));
+    wrap.appendChild(row);
+  });
+  var back=el('button','backbtn','← Different Industry');
+  back.addEventListener('click',function(){ userText('Change Industry'); doIndustry(); });
+  wrap.appendChild(back);
+  botCard(wrap);
+  S.freeChat=true;
+  enableInput('Or type any product question…');
+}
+
+async function doSelectProduct(pid){
+  var p=PRODS[pid]; if(!p) return;
+  userText(p.name); S.product=p; setStep('detail');
+  await say('Here are the complete details for the <strong>'+p.name+'</strong>:',500);
+  await wait(100);
+
+  var det=el('div','det');
+  var dh=el('div','det-head');
+  dh.appendChild(el('div','det-name',p.name));
+  dh.appendChild(el('div','det-sub',p.badge+' · DenseLight Semiconductors'));
+  var db=el('div','det-body');
+  var desc=el('p'); desc.textContent=p.desc; db.appendChild(desc);
+  db.appendChild(el('div','det-sec','Specifications'));
+  var sg=el('div','spec-grid');
+  p.specs.forEach(function(pair){
+    var cell=el('div','spec-cell');
+    cell.appendChild(el('div','spec-k',pair[0]));
+    cell.appendChild(el('div','spec-v',pair[1]));
+    sg.appendChild(cell);
+  });
+  db.appendChild(sg);
+  var fs=el('div','det-sec','Key Features'); fs.style.marginTop='9px'; db.appendChild(fs);
+  var fl=el('ul','feat-list');
+  p.feats.forEach(function(f){ var li=el('li'); li.textContent=f; fl.appendChild(li); });
+  db.appendChild(fl);
+  var as=el('div','det-sec','Applications'); as.style.marginTop='9px'; db.appendChild(as);
+  var al=el('ul','app-list');
+  p.apps.forEach(function(a){ var li=el('li'); li.textContent=a; al.appendChild(li); });
+  db.appendChild(al);
+  var plink=el('a','det-link','🌐 View full product page →');
+  plink.href=p.url; plink.target='_blank';
+  db.appendChild(plink);
+  det.appendChild(dh); det.appendChild(db);
+  botCard(det);
+
+  await wait(350);
+  await say('What would you like to do next with the <strong>'+p.name+'</strong>?',400);
+  await wait(100);
+  doNextSteps(p);
+}
+
+function doNextSteps(p){
+  setStep('nextsteps');
+  var ns=el('div','nextsteps');
+  ns.appendChild(el('div','nextsteps-title','What would you like to do?'));
+  var opts=el('div','ns-opts');
+
+  function mkEmailBtn(ico,lbl,cls,title,subject,reqLine){
+    var btn=el('button','ns-btn '+(cls||''));
+    btn.appendChild(el('span','ns-ico',ico));
+    btn.appendChild(document.createTextNode(lbl));
+    btn.addEventListener('click',function(){
+      showEmailPopup(title,subject,buildEmailBody(p,reqLine));
+    });
+    return btn;
+  }
+  function mkNavBtn(ico,lbl,fn){
+    var btn=el('button','ns-btn');
+    btn.appendChild(el('span','ns-ico',ico));
+    btn.appendChild(document.createTextNode(lbl));
+    btn.addEventListener('click',fn);
+    return btn;
+  }
+  function mkLinkBtn(ico,lbl,href){
+    var a=el('a','ns-btn');
+    a.href=href; a.target='_blank'; a.style.textDecoration='none';
+    a.appendChild(el('span','ns-ico',ico));
+    a.appendChild(document.createTextNode(lbl));
+    return a;
+  }
+
+  opts.appendChild(mkEmailBtn('📧','Request a Quote / Purchase','primary','Request a Quote','Purchase Enquiry – '+p.name,'I would like to request a quote and pricing for this product.'));
+  opts.appendChild(mkEmailBtn('📄','Request Datasheet / Specifications','','Request Datasheet','Datasheet Request – '+p.name,'Please send me the full technical datasheet for this product.'));
+  opts.appendChild(mkEmailBtn('🔬','Request a Sample / Evaluation Unit','','Request a Sample','Sample Request – '+p.name,'I would like to request an engineering sample for evaluation.'));
+  opts.appendChild(mkLinkBtn('🌐','View Product Page on Website',p.url));
+  opts.appendChild(mkNavBtn('📦','Browse More Products',function(){ userText('Browse More Products'); doSelectIndustry(S.industry||{id:'all',n:'All Products',ico:'✨'}); }));
+  opts.appendChild(mkNavBtn('🏭','Choose a Different Industry',function(){ userText('Change Industry'); doIndustry(); }));
+  opts.appendChild(mkNavBtn('🏠','Start Over',function(){ startOver(); }));
+  ns.appendChild(opts);
+  botCard(ns);
+
+  setTimeout(function(){ doContactCard(p); },600);
+}
+
+function doContactCard(p){
+  var con=el('div','con-card');
+  con.appendChild(el('div','con-title','📬 Reach DenseLight directly about the '+p.name+':'));
+  var contacts=[
+    {ico:'✉️',lbl:'Sales Email', val:'sales@denselight.com',href:'mailto:sales@denselight.com'},
+    {ico:'📋',lbl:'General Info',val:'info@denselight.com',  href:'mailto:info@denselight.com'},
+    {ico:'📞',lbl:'Sales Phone', val:'+65 6415 7989',        href:'tel:+6564157989'},
+    {ico:'📞',lbl:'Corporate',   val:'+65 6415 4422',        href:'tel:+6564154422'},
+    {ico:'🌐',lbl:'Website',     val:'www.denselight.com',   href:'https://www.denselight.com'},
+  ];
+  contacts.forEach(function(c){
+    var row=el('div','con-row');
+    row.appendChild(el('span','con-ico',c.ico));
+    var info=el('div');
+    info.appendChild(el('div','con-lbl',c.lbl));
+    var vl=el('div','con-val');
+    var a=el('a'); a.href=c.href; a.textContent=c.val;
+    if(c.href.startsWith('http')) a.target='_blank';
+    vl.appendChild(a); info.appendChild(vl); row.appendChild(info); con.appendChild(row);
+  });
+  botCard(con);
+  setTimeout(function(){
+    S.freeChat=true;
+    say('✅ All set, <strong>'+S.name+'</strong>! You can type any further questions below.',400);
+    enableInput('Any other questions?');
+  },700);
+}
+
+/* ═══════════════════════════════════════════════════════
+   INPUT HANDLING
+══════════════════════════════════════════════════ */
+function sendMsg(){
+  if(txtEl.disabled) return;
+  var v=txtEl.value.trim();
+  if(!v) return;
+  txtEl.value='';
+  userText(v);
+  if(S.freeChat){
+    disableInput();
+    handleFreeText(v);
+    setTimeout(function(){
+      enableInput('Ask another question…');
+    },1200);
+  }
+}
+
+sendbtnEl.addEventListener('click',sendMsg);
+txtEl.addEventListener('keydown',function(e){
+  if(e.key==='Enter') sendMsg();
+});
+
+function startOver(){
+  widgetOpened=false;
+  msgsEl.innerHTML='';
+  disableInput();
+  document.getElementById('footerActions').style.display='none';
+  widgetOpened=true;
+  init();
+}
+
+/* ─── TRANSCRIPT EMAIL ─── */
+function buildTranscript(){
+  var lines=[];
+  var NL='\n';
+  var date=new Date().toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'});
+  lines.push('DenseLight Virtual Assistant — Conversation Transcript');
+  lines.push('Date: '+date);
+  if(S.name) lines.push('Visitor: '+S.name+(S.company?' ('+S.company+')':''));
+  lines.push('─────────────────────────────────────────');
+  var msgs=msgsEl.querySelectorAll('.msg');
+  msgs.forEach(function(m){
+    if(m.classList.contains('card')) return;
+    var bub=m.querySelector('.bub');
+    if(!bub) return;
+    var role=m.classList.contains('usr')?'You':'DenseLight Assistant';
+    var div=document.createElement('div');
+    div.innerHTML=bub.innerHTML;
+    var text=div.innerText||div.textContent||'';
+    // Collapse 3+ consecutive newlines to 2
+    text=text.replace(/\n{3,}/g,'\n\n').trim();
+    if(text) lines.push(NL+'['+role+']'+NL+text);
+  });
+  lines.push(NL+'─────────────────────────────────────────');
+  lines.push('DenseLight Semiconductors Pte. Ltd.');
+  lines.push('sales@denselight.com | +65 6415 7989');
+  lines.push('www.denselight.com');
+  return lines.join(NL);
+}
+
+function emailTranscript(){
+  var transcript=buildTranscript();
+  var name=S.name||'Visitor';
+  var subject='DenseLight Chat Transcript — '+name+' — '+new Date().toLocaleDateString('en-GB');
+
+  // Populate popup
+  document.getElementById('popupTitle').textContent='📩 Email Conversation Transcript';
+  document.getElementById('popupSubject').textContent=subject;
+  document.getElementById('popupBody').textContent=transcript;
+  document.getElementById('copyBodyBtn').textContent='📋 Copy Transcript';
+  document.getElementById('copyBodyBtn').className='copy-btn';
+  document.getElementById('copySubjBtn').textContent='📋 Copy Subject';
+  document.getElementById('copySubjBtn').className='copy-btn sec';
+
+  // Set mailto to visitor's own email if available, fallback to DenseLight
+  var toAddr=S.email?S.email:'';
+  var ccAddr='sales@denselight.com';
+  var mailto='mailto:'+toAddr
+    +'?cc='+encodeURIComponent(ccAddr)
+    +'&subject='+encodeURIComponent(subject)
+    +'&body='+encodeURIComponent(transcript);
+  document.getElementById('mailtoLink').href=mailto;
+  document.getElementById('mailtoLink').textContent='✉️ Open in Email App';
+
+  // Override copy button to copy transcript
+  _cSubject=subject; _cBody=transcript;
+
+  document.getElementById('overlay').classList.add('show');
+}
+
+/* Expose to global scope for inline onclick handlers */
+window.toggleWidget    = toggleWidget;
+window.startOver       = startOver;
+window.closePopup      = closePopup;
+window.copyBody        = copyBody;
+window.copySubject     = copySubject;
+window.emailTranscript = emailTranscript;
+
+</script>
+</body>
+</html>
